@@ -1,138 +1,80 @@
 <template>
   <div class="environment-tab">
     <div class="card">
-      <div class="flex-between mb-4">
-        <h2>{{ $t('environment.title') }}</h2>
-        <button class="btn btn-primary" :disabled="checking" @click="runCheck">
-          {{ checking ? $t('common.loading') : $t('environment.startCheck') }}
-        </button>
+      <div class="flex-between mb-2">
+        <h2>{{ t('environment.title') }}</h2>
+        <button class="btn btn-primary" :disabled="checking" @click="runCheck">{{ checking ? t('common.loading') : t('environment.startCheck') }}</button>
       </div>
 
-      <div v-if="checking" class="text-center">{{ $t('common.loading') }}</div>
-
-      <div v-else-if="results" class="check-results">
-        <div class="check-item card">
-          <div class="check-header">
-            <h3>🔥 {{ $t('environment.firewall') }}</h3>
-            <span :class="['status-badge', getStatusClass(results.firewall)]">
-              {{ getStatusText(results.firewall) }}
-            </span>
+      <div v-if="checking" class="text-center text-secondary">{{ t('common.loading') }}</div>
+      <div v-else-if="results" class="check-list">
+        <div v-for="item in checkItems" :key="item.key" class="check-row">
+          <div class="flex-between">
+            <span class="check-label">{{ item.icon }} {{ item.label }}</span>
+            <span :class="['status-badge', item.cls]">{{ item.status }}</span>
           </div>
-          <p class="text-secondary text-sm mt-2">{{ results.firewall?.message || '' }}</p>
-          <p v-if="results.firewall?.details" class="text-sm mt-2">{{ results.firewall.details }}</p>
+          <div v-if="item.message" class="text-sm text-secondary mt-2">{{ item.message }}</div>
+          <div v-if="item.details" class="text-sm mt-2">{{ item.details }}</div>
         </div>
-
-        <div class="check-item card">
-          <div class="check-header">
-            <h3>🌐 {{ $t('environment.network') }}</h3>
-            <span :class="['status-badge', getStatusClass(results.network)]">
-              {{ getStatusText(results.network) }}
-            </span>
-          </div>
-          <p class="text-secondary text-sm mt-2">{{ results.network?.message || '' }}</p>
-          <p v-if="results.network?.details" class="text-sm mt-2">{{ results.network.details }}</p>
-        </div>
-
-        <div class="check-item card">
-          <div class="check-header">
-            <h3>🔌 {{ $t('environment.port') }}</h3>
-            <span :class="['status-badge', getStatusClass(results.port)]">
-              {{ getStatusText(results.port) }}
-            </span>
-          </div>
-          <p class="text-secondary text-sm mt-2">{{ results.port?.message || '' }}</p>
-          <p v-if="results.port?.details" class="text-sm mt-2">{{ results.port.details }}</p>
-        </div>
-
-        <div v-if="results.solutions && results.solutions.length > 0" class="card solutions-card">
-          <h3>💡 {{ $t('environment.solutions') }}</h3>
-          <ul class="solutions-list">
-            <li v-for="(solution, index) in results.solutions" :key="index">
-              {{ solution }}
-            </li>
+        <div v-if="results.solutions && results.solutions.length" class="mt-4">
+          <h3>{{ t('environment.solutions') }}</h3>
+          <ul class="solution-list">
+            <li v-for="(s, i) in results.solutions" :key="i">{{ s }}</li>
           </ul>
         </div>
       </div>
-
-      <div v-else class="text-center text-secondary">
-        {{ $t('environment.startCheck') }}
-      </div>
+      <div v-else class="text-center text-secondary">{{ t('environment.startCheck') }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
-
 const { t } = useI18n()
-
 const checking = ref(false)
 const results = ref(null)
 
-const runCheck = async () => {
-  checking.value = true
-  try {
-    const checkResults = await api.CheckEnvironment()
-    results.value = checkResults
-  } catch (error) {
-    console.error('环境检测失败:', error)
-  } finally {
-    checking.value = false
-  }
-}
+const checkItems = computed(() => {
+  if (!results.value) return []
+  const r = results.value
+  return [
+    { key: 'firewall', icon: '🔥', label: t('environment.firewall'), cls: statusCls(r.firewall), status: statusText(r.firewall), message: r.firewall?.message, details: r.firewall?.details },
+    { key: 'network', icon: '🌐', label: t('environment.network'), cls: statusCls(r.network), status: statusText(r.network), message: r.network?.message, details: r.network?.details },
+    { key: 'port', icon: '🔌', label: t('environment.port'), cls: statusCls(r.port), status: statusText(r.port), message: r.port?.message, details: r.port?.details },
+  ]
+})
 
-const getStatusClass = (item) => {
-  if (!item) return ''
-  const status = item.status
-  if (status === 'ok' || status === 'normal') return 'status-ok'
-  if (status === 'warning') return 'status-warning'
-  if (status === 'error' || status === 'blocked') return 'status-error'
+const statusCls = (item) => {
+  if (!item) return 'status-ok'
+  const s = item.status
+  if (s === 'ok' || s === 'normal') return 'status-ok'
+  if (s === 'warning') return 'status-warning'
+  if (s === 'error' || s === 'blocked') return 'status-error'
   return 'status-ok'
 }
 
-const getStatusText = (item) => {
-  if (!item) return ''
-  const status = item.status
-  if (status === 'ok' || status === 'normal') return t('environment.statusOk')
-  if (status === 'warning') return t('environment.statusWarning')
-  if (status === 'error' || status === 'blocked') return t('environment.statusError')
-  return status
+const statusText = (item) => {
+  if (!item) return t('environment.statusOk')
+  const s = item.status
+  if (s === 'ok' || s === 'normal') return t('environment.statusOk')
+  if (s === 'warning') return t('environment.statusWarning')
+  if (s === 'error' || s === 'blocked') return t('environment.statusError')
+  return s
+}
+
+const runCheck = async () => {
+  checking.value = true
+  try { results.value = await api.CheckEnvironment() } catch {}
+  checking.value = false
 }
 </script>
 
 <style scoped>
-.check-results {
-  display: grid;
-  gap: 16px;
-}
-
-.check-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.check-item {
-  margin-bottom: 0;
-}
-
-.solutions-card {
-  border-left: 4px solid var(--warning-color);
-}
-
-.solutions-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 12px;
-}
-
-.solutions-list li {
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  background-color: var(--background-color);
-  border-radius: 6px;
-  font-size: 14px;
-}
+.check-list { display: flex; flex-direction: column; gap: 12px; }
+.check-row { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.check-label { font-weight: 500; }
+.solution-list { list-style: none; padding: 0; margin-top: 8px; }
+.solution-list li { padding: 6px 10px; margin-bottom: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
 </style>

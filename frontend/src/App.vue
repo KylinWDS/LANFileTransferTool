@@ -1,34 +1,42 @@
 <template>
   <div :data-theme="currentTheme" class="app-container">
-    <HeaderComponent
-      :current-theme="currentTheme"
-      :current-language="currentLanguage"
-      @toggle-theme="toggleTheme"
-      @change-language="changeLanguage"
-    />
-
-    <main class="container">
-      <div class="tabs">
-        <button
-          v-for="(tab, key) in tabs"
-          :key="key"
-          :class="['tab-btn', { active: activeTab === key }]"
-          @click="activeTab = key"
-        >
-          {{ $t(`tabs.${key}`) }}
+    <header class="app-header">
+      <div class="header-left">
+        <span class="app-title">{{ $t('header.title') }}</span>
+        <span class="server-badge" :class="{ on: serverRunning }">
+          {{ serverRunning ? $t('header.running') : $t('header.stopped') }}
+        </span>
+      </div>
+      <div class="header-right">
+        <select v-model="currentLanguage" class="select" @change="onLanguageChange">
+          <option value="zh-CN">中文</option>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+        </select>
+        <button class="btn" @click="toggleTheme">
+          {{ currentTheme === 'light' ? '🌙' : '☀️' }}
         </button>
       </div>
+    </header>
 
-      <component :is="currentTabComponent" />
+    <main class="container">
+      <nav class="tabs">
+        <button
+          v-for="(label, key) in tabLabels"
+          :key="key"
+          :class="['tab', { active: activeTab === key }]"
+          @click="activeTab = key"
+        >{{ label }}</button>
+      </nav>
+      <component :is="tabComponents[activeTab]" />
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from './api'
-import HeaderComponent from './components/HeaderComponent.vue'
 import TransferTab from './components/TransferTab.vue'
 import DownloadTab from './components/DownloadTab.vue'
 import HistoryTab from './components/HistoryTab.vue'
@@ -37,129 +45,109 @@ import PerformanceTab from './components/PerformanceTab.vue'
 import EnvironmentTab from './components/EnvironmentTab.vue'
 import SettingsTab from './components/SettingsTab.vue'
 
-const { locale } = useI18n()
+const { t, locale } = useI18n()
 
 const currentTheme = ref('light')
 const currentLanguage = ref('zh-CN')
 const activeTab = ref('transfer')
+const serverRunning = ref(false)
 
-const tabs = {
-  transfer: 'transfer',
-  download: 'download',
-  history: 'history',
-  encryption: 'encryption',
-  performance: 'performance',
-  environment: 'environment',
-  settings: 'settings'
+const tabLabels = reactive({})
+const tabComponents = {
+  transfer: TransferTab,
+  download: DownloadTab,
+  history: HistoryTab,
+  encryption: EncryptionTab,
+  performance: PerformanceTab,
+  environment: EnvironmentTab,
+  settings: SettingsTab
 }
 
-const currentTabComponent = computed(() => {
-  const components = {
-    transfer: TransferTab,
-    download: DownloadTab,
-    history: HistoryTab,
-    encryption: EncryptionTab,
-    performance: PerformanceTab,
-    environment: EnvironmentTab,
-    settings: SettingsTab
-  }
-  return components[activeTab.value]
-})
+const updateTabLabels = () => {
+  const keys = ['transfer', 'download', 'history', 'encryption', 'performance', 'environment', 'settings']
+  keys.forEach(k => { tabLabels[k] = t(`tabs.${k}`) })
+}
 
 const toggleTheme = () => {
   currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light'
-  // 同时更新到 body 标签，确保全局生效
   document.documentElement.setAttribute('data-theme', currentTheme.value)
 }
 
-const changeLanguage = (lang) => {
-  currentLanguage.value = lang
-  locale.value = lang
+const onLanguageChange = () => {
+  locale.value = currentLanguage.value
+  updateTabLabels()
 }
 
-// 监听主题变化，同步到 HTML 标签
-watch(currentTheme, (newTheme) => {
-  document.documentElement.setAttribute('data-theme', newTheme)
-  // 同时保存配置
-  saveThemePreference(newTheme)
+watch(currentTheme, (v) => {
+  document.documentElement.setAttribute('data-theme', v)
 })
 
-const saveThemePreference = async (theme) => {
-  try {
-    const config = await api.GetUserConfig()
-    if (config) {
-      await api.SaveUserConfig({
-        ...config,
-        theme
-      })
-    }
-  } catch (error) {
-    console.error('保存主题偏好失败:', error)
-  }
-}
-
 onMounted(async () => {
+  updateTabLabels()
   try {
+    const info = await api.GetServerInfo()
+    if (info) serverRunning.value = info.running
     const config = await api.GetUserConfig()
     if (config) {
       currentTheme.value = config.theme || 'light'
       currentLanguage.value = config.language || 'zh-CN'
       locale.value = currentLanguage.value
-      // 设置到 HTML 标签
       document.documentElement.setAttribute('data-theme', currentTheme.value)
+      updateTabLabels()
     }
-  } catch (error) {
-    console.error('加载用户配置失败:', error)
-  }
+  } catch {}
 })
 </script>
 
 <style scoped>
-.app-container {
-  min-height: 100vh;
-  width: 100%;
+.app-container { min-height: 100vh; }
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
 }
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+.app-title { font-size: 15px; font-weight: 600; }
+
+.server-badge {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(239,68,68,0.1);
+  color: var(--danger);
+}
+.server-badge.on { background: rgba(16,185,129,0.1); color: var(--success); }
+
+.header-right { display: flex; align-items: center; gap: 8px; }
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  overflow-x: auto;
 }
 
-.tab-btn {
-  padding: 10px 20px;
+.tab {
+  padding: 10px 16px;
   border: none;
-  background: transparent;
+  background: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  border-radius: 6px 6px 0 0;
-  transition: all 0.3s ease;
-  position: relative;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
 }
 
-.tab-btn:hover {
-  color: var(--primary-color);
-  background-color: var(--surface-color);
-}
-
-.tab-btn.active {
-  color: var(--primary-color);
-  font-weight: 600;
-}
-
-.tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: -14px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background-color: var(--primary-color);
-  border-radius: 3px 3px 0 0;
-}
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 </style>
