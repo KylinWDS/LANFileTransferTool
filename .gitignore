@@ -56,8 +56,8 @@ data/
 *.db
 
 # Configuration files
-config.yaml
+# config.yaml
 config.yaml.backup
 
 # User config
-user_config.json
+# user_config.json
