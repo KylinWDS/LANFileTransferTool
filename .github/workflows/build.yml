@@ -78,6 +78,14 @@ jobs:
             fi
           fi
 
+      # --- 🔴 关键修复：仅在 macOS 上将 .app 打包成 .zip ---
+      - name: 📦 Archive Application (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          zip -r lanfiletransfertool-mac.zip *.app
+        working-directory: build/bin
+
+
       # 8. 上传产物 (关键修复：使用 v4 版本)
       - name: 📤 Upload Artifact
         uses: actions/upload-artifact@v4
