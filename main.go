@@ -55,6 +55,11 @@ func main() {
 			Bind: []interface{}{
 				application,
 			},
+			Windows: &windows.Options{
+				WebviewIsTransparent: false,
+				WindowIsTranslucent:  false,
+				DisableWindowIcon:    false,
+			},
 			Mac: &mac.Options{
 				TitleBar: &mac.TitleBar{
 					TitlebarAppearsTransparent: false,
