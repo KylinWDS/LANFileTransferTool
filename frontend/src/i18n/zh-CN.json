@@ -1,5 +1,5 @@
 {
-  "common": { "copy": "复制", "copied": "已复制", "copyFailed": "复制失败", "loading": "加载中...", "confirm": "确认？", "action": "操作", "success": "成功", "failed": "失败" },
+  "common": { "submit": "提交", "cancel": "取消", "copy": "复制", "copied": "已复制", "copyFailed": "复制失败", "loading": "加载中...", "confirm": "确认？", "action": "操作", "success": "成功", "failed": "失败" },
   "header": { "title": "LAN文件传输", "running": "运行中", "stopped": "已停止", "theme": "主题", "language": "语言" },
   "tabs": { "transfer": "文件传输", "download": "下载管理", "history": "历史记录", "encryption": "加密解密", "performance": "性能监控", "environment": "环境检测", "settings": "设置" },
   "transfer": { "title": "文件传输", "selectFile": "选择文件", "selectFolder": "选择文件夹", "selectedFiles": "已选文件", "noFileSelected": "请选择要共享的文件或文件夹", "generateLink": "生成链接", "batchGenerateLink": "批量生成链接", "generating": "生成中...", "linkGenerated": "链接已生成", "qrCode": "二维码", "fileInfo": "文件信息", "fileName": "文件名", "fileSize": "文件大小", "folder": "文件夹", "file": "文件", "clearAll": "清空" },

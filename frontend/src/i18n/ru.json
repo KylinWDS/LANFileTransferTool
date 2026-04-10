@@ -1,5 +1,5 @@
 {
-  "common": { "copy": "Копировать", "copied": "Скопировано", "copyFailed": "Ошибка копирования", "loading": "Загрузка...", "confirm": "Подтвердить?", "action": "Действие", "success": "Успех", "failed": "Ошибка" },
+  "common": { "submit": "Подтвердить", "cancel": "Отмена", "copy": "Копировать", "copied": "Скопировано", "copyFailed": "Ошибка копирования", "loading": "Загрузка...", "confirm": "Подтвердить?", "action": "Действие", "success": "Успех", "failed": "Ошибка" },
   "header": { "title": "LAN Передача", "running": "Работает", "stopped": "Остановлен", "theme": "Тема", "language": "Язык" },
   "tabs": { "transfer": "Передача", "download": "Загрузка", "history": "История", "encryption": "Шифрование", "performance": "Производительность", "environment": "Среда", "settings": "Настройки" },
   "transfer": { "title": "Передача файлов", "selectFile": "Выбрать файл", "selectFolder": "Выбрать папку", "selectedFiles": "Выбрано", "noFileSelected": "Выберите файлы для обмена", "generateLink": "Создать ссылку", "batchGenerateLink": "Пакетное создание", "generating": "Создание...", "linkGenerated": "Ссылка создана", "qrCode": "QR-код", "fileInfo": "Информация", "fileName": "Имя", "fileSize": "Размер", "folder": "Папка", "file": "Файл", "clearAll": "Очистить" },

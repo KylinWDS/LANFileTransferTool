@@ -1,5 +1,5 @@
 {
-  "common": { "copy": "Copy", "copied": "Copied", "copyFailed": "Copy failed", "loading": "Loading...", "confirm": "Confirm?", "action": "Action", "success": "Success", "failed": "Failed" },
+  "common": { "submit": "Submit", "cancel": "Cancel", "copy": "Copy", "copied": "Copied", "copyFailed": "Copy failed", "loading": "Loading...", "confirm": "Confirm?", "action": "Action", "success": "Success", "failed": "Failed" },
   "header": { "title": "LAN File Transfer", "running": "Running", "stopped": "Stopped", "theme": "Theme", "language": "Language" },
   "tabs": { "transfer": "Transfer", "download": "Download", "history": "History", "encryption": "Encryption", "performance": "Performance", "environment": "Environment", "settings": "Settings" },
   "transfer": { "title": "File Transfer", "selectFile": "Select File", "selectFolder": "Select Folder", "selectedFiles": "Selected", "noFileSelected": "Select files or folders to share", "generateLink": "Generate Link", "batchGenerateLink": "Batch Generate", "generating": "Generating...", "linkGenerated": "Link Generated", "qrCode": "QR Code", "fileInfo": "File Info", "fileName": "Name", "fileSize": "Size", "folder": "Folder", "file": "File", "clearAll": "Clear" },
