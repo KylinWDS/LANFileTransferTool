@@ -49,8 +49,7 @@ jobs:
       - name: 📦 Install Frontend Dependencies
         # 注意：这一步会根据你前端的 package.json 自动安装依赖
         working-directory: ./frontend
-        run: npm install
-        # run: npm ci
+        run: npm ci
         # 如果你用的是 pnpm，请改为: pnpm install --frozen-lockfile
         # 如果你用的是 yarn，请改为: yarn install --frozen-lockfile
 
