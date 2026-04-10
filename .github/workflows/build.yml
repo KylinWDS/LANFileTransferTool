@@ -71,32 +71,16 @@ jobs:
 
   # 2. 发布任务 (依赖构建任务，将所有文件合并发布)
   release:
+    name: Create Release
     needs: build # 等待 build 任务完成
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
     steps:
       - name: 📥 Download Artifacts
         uses: actions/download-artifact@v4
 
-      # 使用 7-Zip 压缩文件，让 Release 页面更整洁
-      # - name: 📦 Compress Binaries
-      #   run: |
-      #     # Windows 压缩 exe
-      #     zip windows-build.zip windows-bin/lanfiletransfertool.exe
-      #     # Mac 压缩 app (Wails 默认生成的是 .app 包)
-      #     # 注意：Wails 生成的 Mac 应用通常是 "AppName.app"，请根据实际文件名调整
-      #     # 如果是直接生成的二进制文件，可以改为压缩二进制
-      #     zip macos-build.zip macos-bin/lanfiletransfertool.app/*
-
-      # - name: 🚀 Create Release
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     # 自动将所有压缩包作为 Release Assets 上传
-      #     artifacts: "windows-build.zip, macos-build.zip"
-      #     # 自动生成 Release 说明
-      #     generateReleaseNotes: true
-      #     # 只有打 tag 才会创建 Release
-      #     tag: ${{ github.ref }}
-            # --- 压缩产物 (Cross-platform packaging) ---
+      # --- 压缩产物 (Cross-platform packaging) ---
       - name: 📦 Zip Artifacts
         run: |
           # 1. Windows 打包
@@ -121,10 +105,19 @@ jobs:
 
       # --- 上传产物 ---
       - name: 📤 Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: builds-${{ matrix.platform }}
           # 上传生成的 zip 包
           path: |
             windows-build.zip
             macos-build.zip
+
+      - name: 📦 Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows-build/windows-build.zip
+            macos-build/macos-build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
