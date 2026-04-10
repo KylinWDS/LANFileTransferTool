@@ -20,9 +20,11 @@ jobs:
           - os: windows-latest
             platform: windows/amd64
             bin_name: lanfiletransfertool.exe
+            wails_app_name: lanfiletransfertool.exe
           - os: macos-latest
             platform: darwin/universal
             bin_name: lanfiletransfertool.app
+            wails_app_name: lanfiletransfertool.app
 
     steps:
       # 1. 拉取代码
@@ -55,7 +57,7 @@ jobs:
         run: |
           # Wails build 默认会在项目根目录生成 build/ 文件夹
           # -o 指定输出文件名，-platform 指定平台
-          wails build -platform ${{ matrix.platform }} -o bin/${{ matrix.bin_name }}
+          wails build -platform ${{ matrix.platform }} -o ${{ matrix.bin_name }} -name ${{ matrix.wails_app_name }}
 
       # 7. 调试步骤 (关键修复：打印目录树，防止找不到文件)
       - name: 🔍 Debug Directory Structure
@@ -83,7 +85,7 @@ jobs:
           name: ${{ matrix.os }}-build
           # 这里假设 Wails 默认输出到 build/bin/
           # 如果上面的调试步骤显示文件在别处，请修改下面的路径
-          path: build/bin/${{ matrix.bin_name }}
+          path: build/bin/
 
   # 9. 创建 Release (汇总所有产物)
   release:
