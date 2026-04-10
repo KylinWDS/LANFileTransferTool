@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"runtime"
 
 	"lanfiletransfertool/internal/app"
 
@@ -17,40 +18,58 @@ var assets embed.FS
 
 func main() {
 	application := app.NewApp()
-
-	err := wails.Run(&options.App{
-		Title:  "LAN File Transfer Tool",
-		Width:  400,
-		Height: 800,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		OnStartup:     application.Startup,
-		OnDomReady:    application.DomReady,
-		OnBeforeClose: application.BeforeClose,
-		OnShutdown:    application.Shutdown,
-		Bind: []interface{}{
-			application,
-		},
-		Windows: &windows.Options{
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
-			DisableWindowIcon:    false,
-		},
-		Mac: &mac.Options{
-			TitleBar: &mac.TitleBar{
-				TitlebarAppearsTransparent: false,
-				HideTitle:                  false,
-				HideTitleBar:               false,
-				FullSizeContent:            false,
-				UseToolbar:                 false,
-				HideToolbarSeparator:       true,
+	var err error
+	if runtime.GOOS == "windows" {
+		err = wails.Run(&options.App{
+			Title:  "LAN File Transfer Tool",
+			Width:  400,
+			Height: 800,
+			AssetServer: &assetserver.Options{
+				Assets: assets,
 			},
-			Appearance:           mac.NSAppearanceNameDarkAqua,
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
-		},
-	})
+			OnStartup:     application.Startup,
+			OnDomReady:    application.DomReady,
+			OnBeforeClose: application.BeforeClose,
+			OnShutdown:    application.Shutdown,
+			Bind: []interface{}{
+				application,
+			},
+			Windows: &windows.Options{
+				WebviewIsTransparent: false,
+				WindowIsTranslucent:  false,
+				DisableWindowIcon:    false,
+			},
+		})
+	} else if runtime.GOOS == "darwin" {
+		err = wails.Run(&options.App{
+			Title:  "LAN File Transfer Tool",
+			Width:  400,
+			Height: 800,
+			AssetServer: &assetserver.Options{
+				Assets: assets,
+			},
+			OnStartup:     application.Startup,
+			OnDomReady:    application.DomReady,
+			OnBeforeClose: application.BeforeClose,
+			OnShutdown:    application.Shutdown,
+			Bind: []interface{}{
+				application,
+			},
+			Mac: &mac.Options{
+				TitleBar: &mac.TitleBar{
+					TitlebarAppearsTransparent: false,
+					HideTitle:                  false,
+					HideTitleBar:               false,
+					FullSizeContent:            false,
+					UseToolbar:                 false,
+					HideToolbarSeparator:       true,
+				},
+				Appearance:           mac.NSAppearanceNameDarkAqua,
+				WebviewIsTransparent: false,
+				WindowIsTranslucent:  false,
+			},
+		})
+	}
 
 	if err != nil {
 		println("Error:", err.Error())

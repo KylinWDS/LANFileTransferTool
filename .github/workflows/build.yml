@@ -1,0 +1,50 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 当你推送 v1.0, v1.0.1 等标签时触发
+
+jobs:
+  build:
+    strategy:
+      # 这里定义了要在哪些系统上打包
+      matrix:
+        platform: [windows, darwin] # windows=Windows, darwin=MacOS
+        include:
+          - platform: windows
+            os: windows-latest
+            binary-name: lanfiletransfertool.exe
+          - platform: darwin
+            os: macos-latest
+            binary-name: lanfiletransfertool
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.3' # 确保版本与你本地一致
+
+      - name: Setup Node (前端需要)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.7'
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build App
+        run: |
+          # Wails build 会自动处理 embed 和构建标签
+          wails build -o ${{ matrix.binary-name }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform }}-build
+          path: ./build/bin/${{ matrix.binary-name }}
