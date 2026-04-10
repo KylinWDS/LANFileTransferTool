@@ -145,7 +145,8 @@ func (a *App) getServerIP() string {
 
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
+			// 过滤出 IPv4 地址，不是nil并且是192开头的IP 地址
+			if ipnet.IP.To4() != nil && ipnet.IP.To4()[0] == 192 {
 				return ipnet.IP.String()
 			}
 		}
