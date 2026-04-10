@@ -57,7 +57,8 @@ jobs:
         run: |
           # Wails build 默认会在项目根目录生成 build/ 文件夹
           # -o 指定输出文件名，-platform 指定平台
-          wails build -platform ${{ matrix.platform }} -o ${{ matrix.bin_name }}
+          # wails build -platform ${{ matrix.platform }} -o ${{ matrix.bin_name }}
+          wails build
 
       # 7. 调试步骤 (关键修复：打印目录树，防止找不到文件)
       - name: 🔍 Debug Directory Structure
