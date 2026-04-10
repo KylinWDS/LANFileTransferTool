@@ -3,12 +3,13 @@ package main
 import (
 	"embed"
 
+	"lanfiletransfertool/internal/app"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
-	"lanfiletransfertool/internal/app"
 )
 
 //go:embed all:frontend/dist
@@ -19,7 +20,7 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "LAN File Transfer Tool",
-		Width:  1200,
+		Width:  400,
 		Height: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
