@@ -83,6 +83,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           zip -r lanfiletransfertool-mac.zip *.app
+          rm -rf *.app
         working-directory: build/bin
 
 
