@@ -78,21 +78,53 @@ jobs:
         uses: actions/download-artifact@v4
 
       # 使用 7-Zip 压缩文件，让 Release 页面更整洁
-      - name: 📦 Compress Binaries
-        run: |
-          # Windows 压缩 exe
-          zip windows-build.zip windows-bin/lanfiletransfertool.exe
-          # Mac 压缩 app (Wails 默认生成的是 .app 包)
-          # 注意：Wails 生成的 Mac 应用通常是 "AppName.app"，请根据实际文件名调整
-          # 如果是直接生成的二进制文件，可以改为压缩二进制
-          zip macos-build.zip macos-bin/lanfiletransfertool.app/*
+      # - name: 📦 Compress Binaries
+      #   run: |
+      #     # Windows 压缩 exe
+      #     zip windows-build.zip windows-bin/lanfiletransfertool.exe
+      #     # Mac 压缩 app (Wails 默认生成的是 .app 包)
+      #     # 注意：Wails 生成的 Mac 应用通常是 "AppName.app"，请根据实际文件名调整
+      #     # 如果是直接生成的二进制文件，可以改为压缩二进制
+      #     zip macos-build.zip macos-bin/lanfiletransfertool.app/*
 
-      - name: 🚀 Create Release
-        uses: ncipollo/release-action@v1
+      # - name: 🚀 Create Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     # 自动将所有压缩包作为 Release Assets 上传
+      #     artifacts: "windows-build.zip, macos-build.zip"
+      #     # 自动生成 Release 说明
+      #     generateReleaseNotes: true
+      #     # 只有打 tag 才会创建 Release
+      #     tag: ${{ github.ref }}
+            # --- 压缩产物 (Cross-platform packaging) ---
+      - name: 📦 Zip Artifacts
+        run: |
+          # 1. Windows 打包
+          # 确保进入 bin 目录或者使用正确的相对路径
+          if [ -f "build/bin/lanfiletransfertool.exe" ]; then
+            echo "Zipping Windows binary..."
+            # -j 参数表示只存文件不存目录结构，这样解压出来直接是exe
+            zip windows-build.zip build/bin/lanfiletransfertool.exe
+          fi
+
+          # 2. macOS 打包
+          # Wails 在 macOS 上生成的是 .app 包（实际上是一个文件夹）
+          if [ -d "build/bin/lanfiletransfertool.app" ]; then
+            echo "Zipping macOS app..."
+            # 直接压缩 .app 文件夹，不要用 *
+            # -r 表示递归压缩文件夹
+            zip -r macos-build.zip build/bin/lanfiletransfertool.app
+          else
+            echo "Warning: macOS .app not found! Listing build/bin content for debug:"
+            ls -R build/bin
+          fi
+
+      # --- 上传产物 ---
+      - name: 📤 Upload Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          # 自动将所有压缩包作为 Release Assets 上传
-          artifacts: "windows-build.zip, macos-build.zip"
-          # 自动生成 Release 说明
-          generateReleaseNotes: true
-          # 只有打 tag 才会创建 Release
-          tag: ${{ github.ref }}
+          name: builds-${{ matrix.platform }}
+          # 上传生成的 zip 包
+          path: |
+            windows-build.zip
+            macos-build.zip
