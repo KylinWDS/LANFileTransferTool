@@ -59,6 +59,7 @@ jobs:
 
       # 7. 调试步骤 (关键修复：打印目录树，防止找不到文件)
       - name: 🔍 Debug Directory Structure
+        shell: bash  # <--- 加上这一行，强制使用 bash 而不是 PowerShell
         run: |
           echo "=== 打印完整目录树 ==="
           ls -R
