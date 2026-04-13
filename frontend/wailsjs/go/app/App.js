@@ -22,6 +22,10 @@ export function DecryptData(arg1, arg2) {
   return window['go']['app']['App']['DecryptData'](arg1, arg2);
 }
 
+export function DiscoverPeers() {
+  return window['go']['app']['App']['DiscoverPeers']();
+}
+
 export function DownloadFile(arg1, arg2) {
   return window['go']['app']['App']['DownloadFile'](arg1, arg2);
 }
@@ -38,6 +42,14 @@ export function GenerateEncryptionKey() {
   return window['go']['app']['App']['GenerateEncryptionKey']();
 }
 
+export function GetAllIPs() {
+  return window['go']['app']['App']['GetAllIPs']();
+}
+
+export function GetAppInfo() {
+  return window['go']['app']['App']['GetAppInfo']();
+}
+
 export function GetAvailableFiles() {
   return window['go']['app']['App']['GetAvailableFiles']();
 }
@@ -46,12 +58,24 @@ export function GetDownloadInfo(arg1) {
   return window['go']['app']['App']['GetDownloadInfo'](arg1);
 }
 
+export function GetDownloadInfoWithKey(arg1, arg2) {
+  return window['go']['app']['App']['GetDownloadInfoWithKey'](arg1, arg2);
+}
+
 export function GetHistory(arg1) {
   return window['go']['app']['App']['GetHistory'](arg1);
 }
 
 export function GetPerformanceStats() {
   return window['go']['app']['App']['GetPerformanceStats']();
+}
+
+export function GetProtocolStatus() {
+  return window['go']['app']['App']['GetProtocolStatus']();
+}
+
+export function GetSelectedIP() {
+  return window['go']['app']['App']['GetSelectedIP']();
 }
 
 export function GetServerInfo() {
@@ -66,6 +90,10 @@ export function InitThreadPool(arg1) {
   return window['go']['app']['App']['InitThreadPool'](arg1);
 }
 
+export function ParseEncryptedToken(arg1, arg2) {
+  return window['go']['app']['App']['ParseEncryptedToken'](arg1, arg2);
+}
+
 export function ResetUserConfig() {
   return window['go']['app']['App']['ResetUserConfig']();
 }
@@ -76,6 +104,14 @@ export function SaveUserConfig(arg1) {
 
 export function SelectFiles(arg1) {
   return window['go']['app']['App']['SelectFiles'](arg1);
+}
+
+export function SetManualIP(arg1) {
+  return window['go']['app']['App']['SetManualIP'](arg1);
+}
+
+export function SetSelectedIP(arg1) {
+  return window['go']['app']['App']['SetSelectedIP'](arg1);
 }
 
 export function StopThreadPool() {

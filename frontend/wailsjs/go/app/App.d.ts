@@ -11,6 +11,8 @@ export function ClearHistory():Promise<void>;
 
 export function DecryptData(arg1:string,arg2:string):Promise<string>;
 
+export function DiscoverPeers():Promise<Array<Record<string, any>>>;
+
 export function DownloadFile(arg1:string,arg2:string):Promise<Record<string, any>>;
 
 export function EncryptData(arg1:string,arg2:string):Promise<string>;
@@ -19,13 +21,23 @@ export function GenerateDownloadLink(arg1:string):Promise<Record<string, any>>;
 
 export function GenerateEncryptionKey():Promise<string>;
 
+export function GetAllIPs():Promise<Array<Record<string, any>>>;
+
+export function GetAppInfo():Promise<Record<string, any>>;
+
 export function GetAvailableFiles():Promise<Array<Record<string, any>>>;
 
 export function GetDownloadInfo(arg1:string):Promise<Record<string, any>>;
 
+export function GetDownloadInfoWithKey(arg1:string,arg2:string):Promise<Record<string, any>>;
+
 export function GetHistory(arg1:number):Promise<Array<Record<string, any>>>;
 
 export function GetPerformanceStats():Promise<Record<string, any>>;
+
+export function GetProtocolStatus():Promise<Record<string, any>>;
+
+export function GetSelectedIP():Promise<string>;
 
 export function GetServerInfo():Promise<Record<string, any>>;
 
@@ -33,11 +45,17 @@ export function GetUserConfig():Promise<Record<string, any>>;
 
 export function InitThreadPool(arg1:number):Promise<void>;
 
+export function ParseEncryptedToken(arg1:string,arg2:string):Promise<Record<string, any>>;
+
 export function ResetUserConfig():Promise<void>;
 
 export function SaveUserConfig(arg1:Record<string, any>):Promise<void>;
 
 export function SelectFiles(arg1:boolean):Promise<Array<Record<string, any>>>;
+
+export function SetManualIP(arg1:string):Promise<void>;
+
+export function SetSelectedIP(arg1:string):Promise<void>;
 
 export function StopThreadPool():Promise<void>;
 

@@ -19,7 +19,16 @@ import {
   SaveUserConfig,
   SelectFiles,
   StopThreadPool,
-  VerifyFile
+  VerifyFile,
+  GetAllIPs,
+  SetSelectedIP,
+  GetSelectedIP,
+  ParseEncryptedToken,
+  DiscoverPeers,
+  GetDownloadInfoWithKey,
+  SetManualIP,
+  GetProtocolStatus,
+  GetAppInfo
 } from '../../wailsjs/go/app/App'
 
 export default {
@@ -44,4 +53,13 @@ export default {
   ResetUserConfig,
   GetHistory,
   ClearHistory,
+  GetAllIPs,
+  SetSelectedIP,
+  GetSelectedIP,
+  ParseEncryptedToken,
+  DiscoverPeers,
+  GetDownloadInfoWithKey,
+  SetManualIP,
+  GetProtocolStatus,
+  GetAppInfo,
 }

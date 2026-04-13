@@ -9,6 +9,15 @@
         </button>
       </div>
       <p class="text-secondary text-sm mt-2">{{ t('download.linkInputHint') }}</p>
+      
+      <div class="key-section mt-2">
+        <div class="flex gap-2">
+          <input v-model="customKey" class="input" type="password" :placeholder="t('download.customKeyHint')" />
+          <label class="text-sm" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" v-model="useCustomKey" /> {{ t('download.useCustomKey') }}
+          </label>
+        </div>
+      </div>
 
       <div v-if="parsedInfo" class="parsed-card mt-4">
         <h3>{{ t('download.fileInfo') }}</h3>
@@ -70,6 +79,8 @@ const progress = ref(0)
 const loading = ref(true)
 const files = ref([])
 const selectedIDs = ref([])
+const customKey = ref('')
+const useCustomKey = ref(false)
 
 const allSelected = computed(() => files.value.length > 0 && selectedIDs.value.length === files.value.length)
 
@@ -88,10 +99,23 @@ const parseLink = async () => {
       token = input.includes('/') ? input.split('/').pop() : input
     }
     if (!token) { alert(t('download.invalidLink')); return }
-    const info = await api.GetDownloadInfo(token)
+    
+    let info
+    if (useCustomKey.value && customKey.value) {
+      info = await api.GetDownloadInfoWithKey(token, customKey.value)
+    } else {
+      info = await api.GetDownloadInfo(token)
+    }
+    
     if (info) { info._token = token; parsedInfo.value = info }
     else { alert(t('download.invalidLink')) }
-  } catch (e) { alert(t('download.parseFailed')) }
+  } catch (e) { 
+    if (useCustomKey.value) {
+      alert(t('download.parseFailedWithKey'))
+    } else {
+      alert(t('download.parseFailed'))
+    }
+  }
   parsing.value = false
 }
 
@@ -147,6 +171,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.key-section {
+  padding: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+}
 .parsed-card {
   padding: 12px;
   background: var(--bg);
