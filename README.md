@@ -460,7 +460,5 @@ Made with ❤️ by LANFileTransferTool Team
 ## 扩展功能建议 ：
 
 - 添加P2P直连传输
-- 集成云存储（阿里云OSS/ AWS S3）
-- 添加用户认证系统
 - 支持更多传输协议（UDP、WebSocket）
 
