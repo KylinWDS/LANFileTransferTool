@@ -28,7 +28,15 @@
           @click="activeTab = key"
         >{{ label }}</button>
       </nav>
-      <component :is="tabComponents[activeTab]" />
+      <keep-alive>
+        <component
+          :is="tabComponents[activeTab]"
+          :theme="currentTheme"
+          :language="currentLanguage"
+          @theme-change="onThemeChangeFromSettings"
+          @language-change="onLanguageChangeFromSettings"
+        />
+      </keep-alive>
     </main>
   </div>
 </template>
@@ -68,14 +76,69 @@ const updateTabLabels = () => {
   keys.forEach(k => { tabLabels[k] = t(`tabs.${k}`) })
 }
 
-const toggleTheme = () => {
+const toggleTheme = async () => {
   currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light'
   document.documentElement.setAttribute('data-theme', currentTheme.value)
+  // 同步保存到用户配置
+  await saveThemeToConfig()
 }
 
-const onLanguageChange = () => {
+const onLanguageChange = async () => {
   locale.value = currentLanguage.value
   updateTabLabels()
+  // 同步保存到用户配置
+  await saveLanguageToConfig()
+}
+
+// 从设置页面接收主题变更
+const onThemeChangeFromSettings = async (theme) => {
+  if (currentTheme.value !== theme) {
+    currentTheme.value = theme
+    document.documentElement.setAttribute('data-theme', theme)
+    await saveThemeToConfig()
+  }
+}
+
+// 从设置页面接收语言变更
+const onLanguageChangeFromSettings = async (language) => {
+  if (currentLanguage.value !== language) {
+    currentLanguage.value = language
+    locale.value = language
+    updateTabLabels()
+    await saveLanguageToConfig()
+  }
+}
+
+// 保存主题到配置
+const saveThemeToConfig = async () => {
+  try {
+    const config = await api.GetUserConfig()
+    if (config) {
+      await api.SaveUserConfig({
+        theme: currentTheme.value,
+        language: currentLanguage.value,
+        settings: config.settings || {}
+      })
+    }
+  } catch (e) {
+    console.error('保存主题配置失败:', e)
+  }
+}
+
+// 保存语言到配置
+const saveLanguageToConfig = async () => {
+  try {
+    const config = await api.GetUserConfig()
+    if (config) {
+      await api.SaveUserConfig({
+        theme: currentTheme.value,
+        language: currentLanguage.value,
+        settings: config.settings || {}
+      })
+    }
+  } catch (e) {
+    console.error('保存语言配置失败:', e)
+  }
 }
 
 watch(currentTheme, (v) => {

@@ -11,12 +11,16 @@ import (
 )
 
 const (
-	DiscoveryPort     = 37021
-	MsgTypeDiscovery  = "LANFILETRANSFER_DISCOVERY"
-	MsgTypeResponse   = "LANFILETRANSFER_RESPONSE"
-	BroadcastInterval = 5 * time.Second
-	PeerTimeout       = 30 * time.Second
+	MsgTypeDiscovery = "LANFILETRANSFER_DISCOVERY"
+	MsgTypeResponse  = "LANFILETRANSFER_RESPONSE"
 )
+
+// DiscoveryConfig 发现服务配置接口
+type DiscoveryConfig interface {
+	GetDiscoveryPort() int
+	GetBroadcastInterval() time.Duration
+	GetPeerTimeout() time.Duration
+}
 
 type Peer struct {
 	IP       string    `json:"ip"`
@@ -34,27 +38,31 @@ type DiscoveryMessage struct {
 }
 
 type Service struct {
-	port       int
-	serverPort int
-	name       string
-	version    string
-	conn       *net.UDPConn
-	peers      map[string]*Peer
-	mu         sync.RWMutex
-	running    bool
-	stopChan   chan struct{}
-	localIPs   []string
+	port              int
+	serverPort        int
+	name              string
+	version           string
+	conn              *net.UDPConn
+	peers             map[string]*Peer
+	mu                sync.RWMutex
+	running           bool
+	stopChan          chan struct{}
+	localIPs          []string
+	broadcastInterval time.Duration
+	peerTimeout       time.Duration
 }
 
-func NewService(serverPort int, name string) *Service {
+func NewService(cfg DiscoveryConfig, serverPort int, name string) *Service {
 	return &Service{
-		port:       DiscoveryPort,
-		serverPort: serverPort,
-		name:       name,
-		version:    "0.2.0",
-		peers:      make(map[string]*Peer),
-		stopChan:   make(chan struct{}),
-		localIPs:   getLocalIPs(),
+		port:              cfg.GetDiscoveryPort(),
+		serverPort:        serverPort,
+		name:              name,
+		version:           "0.2.0",
+		peers:             make(map[string]*Peer),
+		stopChan:          make(chan struct{}),
+		localIPs:          getLocalIPs(),
+		broadcastInterval: cfg.GetBroadcastInterval(),
+		peerTimeout:       cfg.GetPeerTimeout(),
 	}
 }
 
@@ -190,7 +198,7 @@ func (s *Service) handleResponse(remoteIP string, msg *DiscoveryMessage) {
 }
 
 func (s *Service) broadcast() {
-	ticker := time.NewTicker(BroadcastInterval)
+	ticker := time.NewTicker(s.broadcastInterval)
 	defer ticker.Stop()
 
 	s.sendDiscovery()
@@ -246,7 +254,7 @@ func (s *Service) cleanupPeers() {
 
 	now := time.Now()
 	for key, peer := range s.peers {
-		if now.Sub(peer.LastSeen) > PeerTimeout {
+		if now.Sub(peer.LastSeen) > s.peerTimeout {
 			delete(s.peers, key)
 		}
 	}

@@ -17,13 +17,13 @@ type SpeedSample struct {
 }
 
 type Monitor struct {
-	sendHistory     []SpeedSample
-	receiveHistory  []SpeedSample
-	diskReadHistory []SpeedSample
+	sendHistory      []SpeedSample
+	receiveHistory   []SpeedSample
+	diskReadHistory  []SpeedSample
 	diskWriteHistory []SpeedSample
-	mu              sync.RWMutex
-	maxSamples      int
-	windowSize      time.Duration
+	mu               sync.RWMutex
+	maxSamples       int
+	windowSize       time.Duration
 }
 
 var globalMonitor *Monitor
@@ -172,12 +172,21 @@ func (m *Monitor) calculateSpeed(history []SpeedSample) float64 {
 		return 0
 	}
 
-	duration := newestTime.Sub(oldestTime).Seconds()
+	// 使用当前时间作为结束时间，以获得更实时的速度
+	duration := now.Sub(oldestTime).Seconds()
 	if duration <= 0 {
 		return 0
 	}
 
-	return float64(totalBytes) / duration / 1024 / 1024
+	// 计算速度：MB/s
+	speed := float64(totalBytes) / duration / 1024 / 1024
+
+	// 如果速度太小，返回0
+	if speed < 0.001 {
+		return 0
+	}
+
+	return speed
 }
 
 func (m *Monitor) GetTotalStats() map[string]float64 {
@@ -185,10 +194,10 @@ func (m *Monitor) GetTotalStats() map[string]float64 {
 	defer m.mu.RUnlock()
 
 	return map[string]float64{
-		"send_speed_mbps":     m.calculateSpeed(m.sendHistory),
-		"receive_speed_mbps":  m.calculateSpeed(m.receiveHistory),
-		"disk_read_mbps":      m.calculateSpeed(m.diskReadHistory),
-		"disk_write_mbps":     m.calculateSpeed(m.diskWriteHistory),
+		"send_speed_mbps":    m.calculateSpeed(m.sendHistory),
+		"receive_speed_mbps": m.calculateSpeed(m.receiveHistory),
+		"disk_read_mbps":     m.calculateSpeed(m.diskReadHistory),
+		"disk_write_mbps":    m.calculateSpeed(m.diskWriteHistory),
 	}
 }
 

@@ -35,6 +35,10 @@ type TokenData struct {
 	Expiry   int64  `json:"expiry"`
 	Type     string `json:"type"`
 	Checksum string `json:"checksum"`
+	// 文件元数据（支持跨重启解析）
+	FileName string `json:"file_name,omitempty"`
+	FileSize int64  `json:"file_size,omitempty"`
+	FilePath string `json:"file_path,omitempty"`
 }
 
 type EncryptedToken struct {
@@ -53,7 +57,7 @@ func NewManager(defaultExpiry int, secretKey string) *Manager {
 
 func padKey(key string) string {
 	if len(key) == 0 {
-		key = "lanftt-default-key"
+		key = constants.DefaultSecretKey
 	}
 	for len(key) < 32 {
 		key += key
@@ -65,11 +69,16 @@ func padKey(key string) string {
 }
 
 func (m *Manager) GenerateToken(fileID string, expiry time.Duration) string {
+	return m.GenerateTokenWithFileInfo(fileID, expiry, "", 0, "")
+}
+
+// GenerateTokenWithFileInfo 生成包含文件元数据的Token（支持跨重启解析）
+func (m *Manager) GenerateTokenWithFileInfo(fileID string, expiry time.Duration, fileName string, fileSize int64, filePath string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if expiry == 0 {
-		expiry = constants.TokenExpiryDownload
+		expiry = constants.DefaultTokenExpiryDownload
 	}
 
 	tokenData := TokenData{
@@ -77,6 +86,9 @@ func (m *Manager) GenerateToken(fileID string, expiry time.Duration) string {
 		Expiry:   time.Now().Add(expiry).Unix(),
 		Type:     "download",
 		Checksum: generateChecksum(fileID),
+		FileName: fileName,
+		FileSize: fileSize,
+		FilePath: filePath,
 	}
 
 	encryptedToken, err := m.encryptToken(&tokenData, m.secretKey)
@@ -108,6 +120,28 @@ func (m *Manager) ValidateToken(token string) (*TokenData, error) {
 }
 
 func (m *Manager) ValidateTokenWithKey(token, customKey string) (*TokenData, error) {
+	// 首先尝试解密token（支持跨重启解析）
+	key := m.secretKey
+	if customKey != "" {
+		key = padKey(customKey)
+	}
+
+	tokenData, err := m.decryptToken(token, key)
+	if err == nil {
+		// 解密成功，验证有效期和校验和
+		if time.Now().Unix() > tokenData.Expiry {
+			return nil, errors.ErrTokenExpired
+		}
+
+		expectedChecksum := generateChecksum(tokenData.FileID)
+		if tokenData.Checksum != expectedChecksum {
+			return nil, errors.ErrInvalidToken
+		}
+
+		return tokenData, nil
+	}
+
+	// 解密失败，尝试从内存中查找（向后兼容）
 	m.mu.RLock()
 	if tokenInfo, exists := m.tokens[token]; exists {
 		m.mu.RUnlock()
@@ -125,26 +159,7 @@ func (m *Manager) ValidateTokenWithKey(token, customKey string) (*TokenData, err
 	}
 	m.mu.RUnlock()
 
-	key := m.secretKey
-	if customKey != "" {
-		key = padKey(customKey)
-	}
-
-	tokenData, err := m.decryptToken(token, key)
-	if err != nil {
-		return nil, errors.ErrInvalidToken
-	}
-
-	if time.Now().Unix() > tokenData.Expiry {
-		return nil, errors.ErrTokenExpired
-	}
-
-	expectedChecksum := generateChecksum(tokenData.FileID)
-	if tokenData.Checksum != expectedChecksum {
-		return nil, errors.ErrInvalidToken
-	}
-
-	return tokenData, nil
+	return nil, errors.ErrInvalidToken
 }
 
 func (m *Manager) ParseEncryptedToken(token, customKey string) (*TokenData, error) {

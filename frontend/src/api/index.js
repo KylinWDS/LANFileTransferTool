@@ -7,6 +7,8 @@ import {
   DownloadFile,
   EncryptData,
   GenerateDownloadLink,
+  GenerateDownloadLinkForFile,
+  GenerateBatchDownloadLink,
   GenerateEncryptionKey,
   GetAvailableFiles,
   GetDownloadInfo,
@@ -28,13 +30,19 @@ import {
   GetDownloadInfoWithKey,
   SetManualIP,
   GetProtocolStatus,
-  GetAppInfo
+  GetAppInfo,
+  GetProtocolRecommendation,
+  SetProtocolPreference,
+  SelectProtocol,
+  GetSecurityInfo
 } from '../../wailsjs/go/app/App'
 
 export default {
   GetServerInfo,
   SelectFiles,
   GenerateDownloadLink,
+  GenerateDownloadLinkForFile,
+  GenerateBatchDownloadLink,
   GetAvailableFiles,
   GetDownloadInfo,
   DownloadFile,
@@ -62,4 +70,8 @@ export default {
   SetManualIP,
   GetProtocolStatus,
   GetAppInfo,
+  GetProtocolRecommendation,
+  SetProtocolPreference,
+  SelectProtocol,
+  GetSecurityInfo
 }

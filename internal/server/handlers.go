@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lanfiletransfertool/internal/stats"
 	"lanfiletransfertool/internal/storage"
 	"lanfiletransfertool/internal/userconfig"
 	"lanfiletransfertool/pkg/logger"
@@ -75,6 +76,18 @@ func (s *Server) handleGetDownloadInfo(c *gin.Context) {
 		return
 	}
 
+	// 优先从token中获取文件信息（支持跨重启解析）
+	if info.FileName != "" && info.FileSize > 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"file_id":   info.FileID,
+			"file_name": info.FileName,
+			"file_size": info.FileSize,
+			"checksum":  "",
+		})
+		return
+	}
+
+	// 回退：从内存中获取文件信息
 	fileInfo, err := s.transferSvc.GetFileInfo(info.FileID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "文件不存在"})
@@ -325,19 +338,31 @@ func (s *Server) handleDownload(c *gin.Context) {
 		return
 	}
 
-	fileInfo, err := s.transferSvc.GetFileInfo(info.FileID)
-	if err != nil {
-		c.String(http.StatusNotFound, "文件不存在")
-		return
-	}
-
 	clientIP := c.ClientIP()
 	if !s.accessCtrl.AllowAccess(clientIP) {
 		c.String(http.StatusForbidden, "访问被拒绝")
 		return
 	}
 
-	filePath := fileInfo.Path
+	var filePath, fileName string
+	var fileSize int64
+
+	// 优先从token中获取文件信息（支持跨重启解析）
+	if info.FilePath != "" && info.FileName != "" {
+		filePath = info.FilePath
+		fileName = info.FileName
+		fileSize = info.FileSize
+	} else {
+		// 回退：从内存中获取文件信息
+		fileInfo, err := s.transferSvc.GetFileInfo(info.FileID)
+		if err != nil {
+			c.String(http.StatusNotFound, "文件不存在")
+			return
+		}
+		filePath = fileInfo.Path
+		fileName = fileInfo.Name
+		fileSize = fileInfo.Size
+	}
 
 	// 检查是否是文件夹
 	stat, err := os.Stat(filePath)
@@ -353,70 +378,242 @@ func (s *Server) handleDownload(c *gin.Context) {
 		c.Header("Content-Transfer-Encoding", "binary")
 		c.Header("Content-Disposition", "attachment; filename="+zipName)
 		c.Header("Content-Type", "application/zip")
+		// 禁用缓存，确保流式传输
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Header("Pragma", "no-cache")
+		c.Header("Expires", "0")
 
-		zw := zip.NewWriter(c.Writer)
-		err = filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			relPath, err := filepath.Rel(filePath, path)
-			if err != nil {
-				return err
-			}
-
-			// 使用 UTF-8 编码文件名，设置 flag 以支持非 ASCII 字符
-			h := &zip.FileHeader{
-				Name:               strings.ReplaceAll(relPath, "\\", "/"),
-				UncompressedSize:   uint32(info.Size()),
-				UncompressedSize64: uint64(info.Size()),
-			}
-			h.SetMode(info.Mode())
-			h.SetModTime(info.ModTime())
-
-			w, err := zw.CreateHeader(h)
-			if err != nil {
-				return err
-			}
-
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			_, err = io.Copy(w, f)
-			return err
-		})
-
-		if err != nil {
+		// 使用简化的 zip 打包
+		if err := createZipFromDir(c.Writer, filePath); err != nil {
 			logger.Error("打包文件夹失败: %v", err)
 			return
 		}
-
-		zw.Close()
 	} else {
 		// 普通文件下载
 		c.Header("Content-Description", "File Transfer")
 		c.Header("Content-Transfer-Encoding", "binary")
-		c.Header("Content-Disposition", "attachment; filename="+fileInfo.Name)
+		c.Header("Content-Disposition", "attachment; filename="+fileName)
 		c.Header("Content-Type", "application/octet-stream")
-		c.Header("Content-Length", strconv.FormatInt(fileInfo.Size, 10))
+		c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 
-		http.ServeFile(c.Writer, c.Request, filePath)
+		// 使用自定义复制以记录统计
+		file, err := os.Open(filePath)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "无法打开文件")
+			return
+		}
+		defer file.Close()
+
+		buffer := make([]byte, 64*1024) // 64KB 缓冲区
+		for {
+			n, err := file.Read(buffer)
+			if n > 0 {
+				c.Writer.Write(buffer[:n])
+				stats.RecordSend(int64(n))
+				stats.RecordDiskRead(int64(n))
+			}
+			if err != nil {
+				break
+			}
+		}
 	}
 
+	// 增加下载次数
+	s.storage.IncrementDownloadCount(filePath)
+
 	record := &storage.HistoryRecord{
-		FileName: fileInfo.Name,
-		FileSize: fileInfo.Size,
+		FileName: fileName,
+		FileSize: fileSize,
+		FilePath: filePath,
 		Action:   "download",
 		Status:   "completed",
 	}
 	s.storage.AddHistory(record)
+}
+
+// createZipFromDir 将文件夹打包为 zip 并写入 writer
+func createZipFromDir(w io.Writer, dirPath string) error {
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 跳过目录本身，只添加文件
+		if info.IsDir() {
+			return nil
+		}
+
+		// 计算相对路径
+		relPath, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return err
+		}
+		// 统一使用正斜杠
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+		// 创建 zip 文件条目（使用最简单的 Create 方法）
+		wf, err := zw.Create(relPath)
+		if err != nil {
+			return fmt.Errorf("创建 zip 条目失败: %w", err)
+		}
+
+		// 打开源文件
+		rf, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("打开文件失败: %w", err)
+		}
+
+		// 复制内容
+		_, err = io.Copy(wf, rf)
+		rf.Close()
+		if err != nil {
+			return fmt.Errorf("复制文件内容失败: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// handleBatchDownloadLink 处理批量下载链接（将多个文件打包成zip）
+func (s *Server) handleBatchDownloadLink(c *gin.Context) {
+	tokenStr := c.Param("token")
+
+	// 验证token
+	info, err := s.tokenManager.ValidateToken(tokenStr)
+	if err != nil {
+		c.String(http.StatusUnauthorized, "无效或已过期的下载链接")
+		return
+	}
+
+	// 检查访问权限
+	clientIP := c.ClientIP()
+	if !s.accessCtrl.AllowAccess(clientIP) {
+		c.String(http.StatusForbidden, "访问被拒绝")
+		return
+	}
+
+	// 获取文件ID列表
+	// 批量token的FileID格式为 "batch:fileID1,fileID2,..."
+	var fileIDs []string
+	if strings.HasPrefix(info.FileID, "batch:") {
+		// 解析批量文件ID
+		idsStr := strings.TrimPrefix(info.FileID, "batch:")
+		fileIDs = strings.Split(idsStr, ",")
+	} else {
+		// 单个文件
+		fileIDs = []string{info.FileID}
+	}
+
+	// 设置响应头
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename=batch_download.zip")
+	c.Header("Content-Type", "application/zip")
+	// 禁用缓存，确保流式传输
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+
+	// 创建zip写入器
+	zw := zip.NewWriter(c.Writer)
+	defer zw.Close()
+
+	// 遍历所有文件并添加到zip
+	for _, fileID := range fileIDs {
+		fileInfo, err := s.transferSvc.GetFileInfo(fileID)
+		if err != nil {
+			logger.Error("获取文件信息失败: %v", err)
+			continue
+		}
+
+		filePath := fileInfo.Path
+		stat, err := os.Stat(filePath)
+		if err != nil {
+			logger.Error("文件不存在: %s", filePath)
+			continue
+		}
+
+		if stat.IsDir() {
+			// 文件夹：递归添加所有文件
+			err = addDirToZip(zw, filePath, fileInfo.Name)
+			if err != nil {
+				logger.Error("打包文件夹失败: %v", err)
+			}
+		} else {
+			// 单个文件
+			err = addFileToZip(zw, filePath, fileInfo.Name)
+			if err != nil {
+				logger.Error("添加文件到zip失败: %v", err)
+			}
+		}
+
+		// 记录历史
+		record := &storage.HistoryRecord{
+			FileName: fileInfo.Name,
+			FileSize: fileInfo.Size,
+			FilePath: fileInfo.Path,
+			Action:   "download",
+			Status:   "completed",
+		}
+		s.storage.AddHistory(record)
+	}
+}
+
+// addFileToZip 添加单个文件到zip
+func addFileToZip(zw *zip.Writer, filePath, zipName string) error {
+	// 创建zip文件条目（使用最简单的 Create 方法）
+	w, err := zw.Create(zipName)
+	if err != nil {
+		return fmt.Errorf("创建zip条目失败: %w", err)
+	}
+
+	// 打开文件
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("打开文件失败: %w", err)
+	}
+	defer f.Close()
+
+	// 复制文件内容
+	_, err = io.Copy(w, f)
+	if err != nil {
+		return fmt.Errorf("复制文件内容失败: %w", err)
+	}
+	return nil
+}
+
+// addDirToZip 添加文件夹内容到zip（不包含文件夹本身，只包含其内容）
+func addDirToZip(zw *zip.Writer, dirPath, baseName string) error {
+	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 跳过目录本身
+		if path == dirPath {
+			return nil
+		}
+
+		// 跳过子目录，只处理文件
+		if info.IsDir() {
+			return nil
+		}
+
+		// 计算相对路径
+		relPath, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return err
+		}
+
+		// 构建zip路径：baseName/相对路径
+		zipPath := baseName + "/" + strings.ReplaceAll(relPath, "\\", "/")
+
+		// 添加文件
+		return addFileToZip(zw, path, zipPath)
+	})
 }
 
 func generateDownloadURL(token string, port int) string {

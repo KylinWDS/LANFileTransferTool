@@ -16,20 +16,18 @@ import (
 )
 
 const (
-	DefaultPort        = 37022
-	MaxPacketSize      = 65507
-	ChunkSize          = 32 * 1024
-	HeaderSize         = 32
-	HandshakeMsg       = "UDP_TRANSFER_HANDSHAKE"
-	HandshakeAck       = "UDP_TRANSFER_ACK"
-	FileRequestMsg     = "FILE_REQUEST"
-	FileDataMsg        = "FILE_DATA"
-	FileEndMsg         = "FILE_END"
-	ErrorMsg           = "ERROR"
-	ProgressMsg        = "PROGRESS"
-	ResendRequestMsg   = "RESEND"
-	DefaultTimeout     = 30 * time.Second
-	MaxRetries         = 3
+	MaxPacketSize    = 65507
+	HeaderSize       = 32
+	HandshakeMsg     = "UDP_TRANSFER_HANDSHAKE"
+	HandshakeAck     = "UDP_TRANSFER_ACK"
+	FileRequestMsg   = "FILE_REQUEST"
+	FileDataMsg      = "FILE_DATA"
+	FileEndMsg       = "FILE_END"
+	ErrorMsg         = "ERROR"
+	ProgressMsg      = "PROGRESS"
+	ResendRequestMsg = "RESEND"
+	DefaultTimeout   = 30 * time.Second
+	MaxRetries       = 3
 )
 
 type PacketHeader struct {
@@ -58,6 +56,7 @@ type TransferSession struct {
 
 type Service struct {
 	port       int
+	chunkSize  int
 	conn       *net.UDPConn
 	sessions   map[string]*TransferSession
 	mu         sync.RWMutex
@@ -66,12 +65,19 @@ type Service struct {
 	fileGetter func(fileID string) (string, string, int64, error)
 }
 
-func NewService(port int, fileGetter func(fileID string) (string, string, int64, error)) *Service {
+// UDPConfig UDP配置接口
+type UDPConfig interface {
+	GetUDPPort() int
+}
+
+func NewService(cfg UDPConfig, fileGetter func(fileID string) (string, string, int64, error)) *Service {
+	port := cfg.GetUDPPort()
 	if port <= 0 {
-		port = DefaultPort
+		port = 37022 // 默认端口
 	}
 	return &Service{
 		port:       port,
+		chunkSize:  32 * 1024, // 默认分块大小 32KB
 		sessions:   make(map[string]*TransferSession),
 		stopChan:   make(chan struct{}),
 		fileGetter: fileGetter,
@@ -252,9 +258,9 @@ func (s *Service) sendFile(sessionID, filePath string) {
 
 	fileInfo, _ := file.Stat()
 	fileSize := fileInfo.Size()
-	chunkCount := uint32((fileSize + ChunkSize - 1) / ChunkSize)
+	chunkCount := uint32((fileSize + int64(s.chunkSize) - 1) / int64(s.chunkSize))
 
-	buffer := make([]byte, ChunkSize)
+	buffer := make([]byte, s.chunkSize)
 	var chunkIndex uint32 = 0
 
 	for {
@@ -416,7 +422,7 @@ func (c *Client) DownloadFile(fileID, savePath string) error {
 	defer file.Close()
 
 	chunks := make(map[uint32][]byte)
-	chunkCount := uint32((ack.FileSize + ChunkSize - 1) / ChunkSize)
+	chunkCount := uint32((ack.FileSize + int64(32*1024) - 1) / int64(32*1024))
 
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(c.timeout))

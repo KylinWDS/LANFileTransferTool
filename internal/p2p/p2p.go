@@ -14,10 +14,8 @@ import (
 )
 
 const (
-	DefaultP2PPort    = 37023
 	HandshakeTimeout  = 10 * time.Second
 	TransferTimeout   = 300 * time.Second
-	ChunkSize         = 64 * 1024
 	MaxPendingChunks  = 16
 )
 
@@ -76,6 +74,7 @@ type Transfer struct {
 
 type Service struct {
 	port       int
+	chunkSize  int
 	peerID     string
 	listener   net.Listener
 	peers      map[string]*Peer
@@ -87,12 +86,19 @@ type Service struct {
 	onProgress func(transferID string, progress float64)
 }
 
-func NewService(port int, fileGetter func(fileID string) (string, string, int64, error)) *Service {
+// P2PConfig P2P配置接口
+type P2PConfig interface {
+	GetP2PPort() int
+}
+
+func NewService(cfg P2PConfig, fileGetter func(fileID string) (string, string, int64, error)) *Service {
+	port := cfg.GetP2PPort()
 	if port <= 0 {
-		port = DefaultP2PPort
+		port = 37023 // 默认端口
 	}
 	return &Service{
 		port:       port,
+		chunkSize:  64 * 1024, // 默认分块大小 64KB
 		peerID:     generatePeerID(),
 		peers:      make(map[string]*Peer),
 		transfers:  make(map[string]*Transfer),
@@ -251,7 +257,7 @@ func (s *Service) handleFileRequest(peer *Peer, msg Message, encoder *json.Encod
 	}
 
 	transferID := generateTransferID()
-	chunkCount := int((fileSize + ChunkSize - 1) / ChunkSize)
+	chunkCount := int((fileSize + int64(s.chunkSize) - 1) / int64(s.chunkSize))
 
 	transfer := &Transfer{
 		ID:           transferID,
@@ -276,7 +282,7 @@ func (s *Service) handleFileRequest(peer *Peer, msg Message, encoder *json.Encod
 		FileName:   fileName,
 		FileSize:   fileSize,
 		ChunkCount: chunkCount,
-		ChunkSize:  ChunkSize,
+		ChunkSize:  s.chunkSize,
 	}
 	encoder.Encode(info)
 }
@@ -298,10 +304,10 @@ func (s *Service) handleChunkRequest(peer *Peer, msg Message, encoder *json.Enco
 	}
 	defer file.Close()
 
-	offset := int64(msg.ChunkIndex * ChunkSize)
+	offset := int64(msg.ChunkIndex * s.chunkSize)
 	file.Seek(offset, io.SeekStart)
 
-	buffer := make([]byte, ChunkSize)
+	buffer := make([]byte, s.chunkSize)
 	n, err := file.Read(buffer)
 	if err != nil && err != io.EOF {
 		encoder.Encode(Message{Type: MsgError, Error: "读取文件失败"})
