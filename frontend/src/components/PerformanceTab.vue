@@ -1,0 +1,81 @@
+<template>
+  <div class="performance-tab">
+    <div class="card">
+      <div class="flex-between mb-2">
+        <h2>{{ t('performance.title') }}</h2>
+        <div class="flex gap-2">
+          <button class="btn btn-sm" @click="refresh">{{ t('performance.refresh') }}</button>
+          <label class="text-sm" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" v-model="autoRefresh" @change="toggleAuto" /> {{ t('performance.autoRefresh') }}
+          </label>
+        </div>
+      </div>
+      <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
+      <div v-else class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">{{ t('performance.cpuUsage') }}</div>
+          <div class="stat-val">{{ stats.cpu_usage.toFixed(1) }}%</div>
+          <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.cpu_usage+'%'}"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">{{ t('performance.memoryUsage') }}</div>
+          <div class="stat-val">{{ stats.memory_usage.toFixed(1) }}%</div>
+          <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.memory_usage+'%'}"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">{{ t('performance.networkSpeed') }}</div>
+          <div class="stat-val">{{ stats.network_speed.toFixed(2) }} MB/s</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">{{ t('performance.goroutines') }}</div>
+          <div class="stat-val">{{ stats.active_goroutines }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>{{ t('performance.poolSize') }}</h2>
+      <div class="flex gap-2 mt-3" style="align-items:center">
+        <input type="number" v-model.number="poolSize" class="input" min="1" max="100" style="max-width:100px" />
+        <button class="btn btn-primary" :disabled="poolRunning" @click="initPool">{{ t('performance.initPool') }}</button>
+        <button class="btn btn-danger" :disabled="!poolRunning" @click="stopPool">{{ t('performance.stopPool') }}</button>
+        <span :class="['status-badge', poolRunning?'status-ok':'status-warning']">{{ poolRunning ? t('performance.poolRunning') : t('performance.poolStopped') }}</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import api from '../api'
+const { t } = useI18n()
+const loading = ref(true)
+const stats = ref({ cpu_usage: 0, memory_usage: 0, network_speed: 0, active_goroutines: 0 })
+const poolSize = ref(10)
+const poolRunning = ref(false)
+const autoRefresh = ref(false)
+let timer = null
+
+const refresh = async () => {
+  try {
+    const r = await api.GetPerformanceStats()
+    if (r) stats.value = r
+  } catch {}
+  loading.value = false
+}
+
+const initPool = async () => { try { await api.InitThreadPool(poolSize.value); poolRunning.value = true } catch {} }
+const stopPool = async () => { try { await api.StopThreadPool(); poolRunning.value = false } catch {} }
+const toggleAuto = () => { if (autoRefresh.value) { timer = setInterval(refresh, 2000) } else { clearInterval(timer); timer = null } }
+
+onMounted(refresh)
+onUnmounted(() => { if (timer) clearInterval(timer) })
+</script>
+
+<style scoped>
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.stat-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; }
+.stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.stat-val { font-size: 24px; font-weight: 700; color: var(--primary); }
+</style>

@@ -1,0 +1,63 @@
+# Go build artifacts
+bin/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Dependency directories
+node_modules/
+# go.mod
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Log files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Wails build output
+build/
+frontend/dist/
+
+# SQLite database
+data/
+*.db
+
+# Configuration files
+# config.yaml
+config.yaml.backup
+
+# User config
+# user_config.json

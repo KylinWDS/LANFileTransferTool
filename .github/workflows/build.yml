@@ -1,0 +1,131 @@
+name: Build & Release Matrix
+
+on:
+  push:
+    tags:
+      - 'v*' # 监听 v1.0.0 这样的标签
+
+permissions:
+  contents: write # 必须有写入权限才能创建 Release
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            platform: windows/amd64
+            bin_name: lanfiletransfertool.exe
+            wails_app_name: lanfiletransfertool.exe
+          - os: macos-latest
+            platform: darwin/universal
+            bin_name: lanfiletransfertool.app
+            wails_app_name: lanfiletransfertool.app
+
+    steps:
+      # 1. 拉取代码
+      - name: 🛒 Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. 设置 Go 环境
+      - name: ⚙️ Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+
+      # 3. 设置 Node.js 环境
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.7'
+
+      # 4. 安装前端依赖 (关键修复：适配你的目录结构)
+      - name: 📦 Install Frontend Deps
+        working-directory: ./frontend
+        run: npm ci --lockfile-location ../package-lock.json
+
+      # 5. 安装 Wails 编译器
+      - name: 🛠️ Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # 6. 执行构建 (关键修复：强制指定输出路径)
+      - name: 🏗️ Build Application
+        run: |
+          # Wails build 默认会在项目根目录生成 build/ 文件夹
+          # -o 指定输出文件名，-platform 指定平台
+          # wails build -platform ${{ matrix.platform }} -o ${{ matrix.bin_name }}
+          wails build
+
+      # 7. 调试步骤 (关键修复：打印目录树，防止找不到文件)
+      - name: 🔍 Debug Directory Structure
+        shell: bash  # <--- 加上这一行，强制使用 bash 而不是 PowerShell
+        run: |
+          echo "=== 打印完整目录树 ==="
+          ls -R
+          echo "=== 检查 build/bin 目录 ==="
+          if [ -d "build/bin" ]; then
+            echo "✅ 发现 build/bin 目录，内容如下："
+            ls -R build/bin
+          else
+            echo "❌ 未发现 build/bin 目录"
+            # 检查是否直接生成在 bin/ 目录下
+            if [ -d "bin" ]; then
+               echo "⚠️ 发现根目录下的 bin/ 目录，内容如下："
+               ls -R bin
+            fi
+          fi
+
+      # --- 🔴 关键修复：仅在 macOS 上将 .app 打包成 .zip ---
+      - name: 📦 Archive Application (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          zip -r lanfiletransfertool-mac.zip *.app
+        working-directory: build/bin
+
+
+      # 8. 上传产物 (关键修复：使用 v4 版本)
+      - name: 📤 Upload Artifact
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-build
+          # 这里假设 Wails 默认输出到 build/bin/
+          # 如果上面的调试步骤显示文件在别处，请修改下面的路径
+          path: build/bin/lanfiletransfertool-mac.zip
+      # 8. 上传产物 (关键修复：使用 v4 版本)
+      - name: 📤 Upload Artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-build
+          # 这里假设 Wails 默认输出到 build/bin/
+          # 如果上面的调试步骤显示文件在别处，请修改下面的路径
+          path: build/bin/
+
+  # 9. 创建 Release (汇总所有产物)
+  release:
+    name: Create Release
+    needs: build # 等待 build 任务完成
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 下载所有构建产物
+      - name: 📥 Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts # 下载到 artifacts 目录
+
+      # 创建 Release 并上传文件
+      - name: 🚀 Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 上传 artifacts 目录下的所有内容
+          files: |
+            artifacts/**/*
+          generateReleaseNotes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

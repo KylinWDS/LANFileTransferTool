@@ -1,0 +1,21 @@
+app:
+  name: "LAN File Transfer Tool"
+  version: "1.0.0"
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+transfer:
+  max_connections: 10
+  chunk_size: 1048576
+  enable_resume: true
+
+security:
+  token_expiry: 86400
+  secret_key: "your-secret-key-here"
+  whitelist: []
+  blacklist: []
+
+history:
+  max_records: 10
