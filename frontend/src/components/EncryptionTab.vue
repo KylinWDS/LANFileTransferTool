@@ -5,7 +5,7 @@
       <div class="mb-4">
         <label class="label">{{ t('encryption.key') }}</label>
         <div class="flex gap-2">
-          <input v-model="key" class="input" readonly />
+          <input v-model="key" class="input"/>
           <button class="btn btn-primary" @click="genKey">{{ t('encryption.generateKey') }}</button>
         </div>
       </div>
@@ -26,15 +26,37 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import {ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import api from '../api'
-const { t } = useI18n()
+
+const {t} = useI18n()
 const key = ref('')
 const plainText = ref('')
 const cipherText = ref('')
 
-const genKey = async () => { try { key.value = await api.GenerateEncryptionKey() } catch {} }
-const encrypt = async () => { try { cipherText.value = await api.EncryptData(plainText.value, key.value) } catch { alert(t('encryption.encryptFailed')) } }
-const decrypt = async () => { try { plainText.value = await api.DecryptData(cipherText.value, key.value) } catch { alert(t('encryption.decryptFailed')) } }
+const genKey = async () => {
+  try {
+    key.value = await api.GenerateEncryptionKey();
+    plainText.value = '';
+    cipherText.value = '';
+  } catch {
+  }
+}
+const encrypt = async () => {
+  try {
+    cipherText.value = '';
+    cipherText.value = await api.EncryptData(plainText.value, key.value)
+  } catch {
+    alert(t('encryption.encryptFailed'))
+  }
+}
+const decrypt = async () => {
+  try {
+    plainText.value = '';
+    plainText.value = await api.DecryptData(cipherText.value, key.value)
+  } catch {
+    alert(t('encryption.decryptFailed'))
+  }
+}
 </script>
