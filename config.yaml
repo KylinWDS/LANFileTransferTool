@@ -1,47 +1,56 @@
+# LAN File Transfer Tool 配置文件
+# 此文件包含应用程序的系统级配置
+# 用户可以通过修改此文件来自定义应用行为
+
 app:
   name: "LAN-File-Transfer-Tool"
   short_name: "LANftt"
   version: "0.2.0"
 
 server:
-  port: 8080
-  host: "0.0.0.0"
+  port: 8080              # HTTP服务器端口
+  host: "0.0.0.0"         # 监听地址 (0.0.0.0 表示监听所有接口)
 
 discovery:
-  enabled: true
-  port: 37021
-  broadcast_interval: 5
-  peer_timeout: 30
+  enabled: true           # 启用UDP设备发现
+  port: 37021             # 发现服务端口
+  broadcast_interval: 5   # 广播间隔（秒）
+  peer_timeout: 30        # 节点超时时间（秒）
 
 websocket:
-  enabled: true
-  port_offset: 0
-  chunk_size: 65536
+  enabled: true           # 启用WebSocket传输
+  port_offset: 1          # 相对于HTTP端口的偏移量
+  chunk_size: 65536       # 传输分片大小（字节）
 
 udp:
-  enabled: true
-  port: 37022
-  chunk_size: 32768
+  enabled: true           # 启用UDP传输
+  port: 37022             # UDP传输端口
+  chunk_size: 32768       # 传输分片大小（字节）
 
 p2p:
-  enabled: true
-  port: 37023
-  chunk_size: 65536
+  enabled: true           # 启用P2P传输
+  port: 37023             # P2P传输端口
+  chunk_size: 65536       # 传输分片大小（字节）
 
 transfer:
-  max_connections: 10
-  chunk_size: 1048576
-  enable_resume: true
+  max_connections: 10     # 最大并发连接数
+  chunk_size: 1048576     # 文件分片大小（字节，默认1MB）
+  enable_resume: true     # 启用断点续传
 
 security:
-  token_expiry: 86400
-  secret_key: "lanftt-default-secret-key-change-in-production"
-  whitelist: []
-  blacklist: []
+  token_expiry: 86400     # Token过期时间（秒，默认24小时）
+  # 加密密钥 - 用于跨设备链接共享
+  # 默认密钥允许所有用户互相解析链接
+  # 如需更高安全性，请修改为自定义密钥（建议32字节以上）
+  secret_key: "LANfttSecretKey"
+  # 白名单 - 允许解析链接的IP地址列表
+  # 空表示允许所有IP解析
+  whitelist: []           # IP白名单（空表示允许所有）
+  blacklist: []           # IP黑名单
 
 history:
-  max_records: 100
+  max_records: 100        # 最大历史记录数
 
 performance:
-  pool_size: 10
-  monitor_interval: 2
+  pool_size: 10           # 线程池大小
+  monitor_interval: 2     # 性能监控间隔（秒）

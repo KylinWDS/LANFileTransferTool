@@ -126,6 +126,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	s.router.GET("/download/:token", s.handleDownload)
+	s.router.GET("/download/batch/:token", s.handleBatchDownloadLink)
 }
 
 func (s *Server) Start() error {

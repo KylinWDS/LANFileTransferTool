@@ -12,7 +12,30 @@
       </div>
       <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
       <div v-else>
-        <h3 class="section-title">{{ t('performance.networkStats') }}</h3>
+        <!-- 线程池状态 -->
+        <h3 class="section-title">{{ t('performance.poolStats') }}</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.poolStatus') }}</div>
+            <div class="stat-val" :class="stats.pool_running ? 'text-success' : 'text-secondary'">
+              {{ stats.pool_running ? t('performance.poolRunning') : t('performance.poolStopped') }}
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.poolSize') }}</div>
+            <div class="stat-val">{{ stats.pool_size }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.poolTasks') }}</div>
+            <div class="stat-val">{{ stats.pool_task_count }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.poolQueue') }}</div>
+            <div class="stat-val">{{ stats.pool_queue_size }}</div>
+          </div>
+        </div>
+
+        <h3 class="section-title mt-4">{{ t('performance.networkStats') }}</h3>
         <div class="stats-grid">
           <div class="stat-item">
             <div class="stat-label">{{ t('performance.sendSpeed') }}</div>
@@ -55,16 +78,6 @@
         </div>
       </div>
     </div>
-
-    <div class="card">
-      <h2>{{ t('performance.poolSize') }}</h2>
-      <div class="flex gap-2 mt-3" style="align-items:center">
-        <input type="number" v-model.number="poolSize" class="input" min="1" max="100" style="max-width:100px" />
-        <button class="btn btn-primary" :disabled="poolRunning" @click="initPool">{{ t('performance.initPool') }}</button>
-        <button class="btn btn-danger" :disabled="!poolRunning" @click="stopPool">{{ t('performance.stopPool') }}</button>
-        <span :class="['status-badge', poolRunning?'status-ok':'status-warning']">{{ poolRunning ? t('performance.poolRunning') : t('performance.poolStopped') }}</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -81,10 +94,12 @@ const stats = ref({
   network_recv_speed: 0,
   disk_read_speed: 0,
   disk_write_speed: 0,
-  active_goroutines: 0 
+  active_goroutines: 0,
+  pool_running: false,
+  pool_size: 0,
+  pool_task_count: 0,
+  pool_queue_size: 0
 })
-const poolSize = ref(10)
-const poolRunning = ref(false)
 const autoRefresh = ref(false)
 let timer = null
 
@@ -102,8 +117,6 @@ const refresh = async () => {
   loading.value = false
 }
 
-const initPool = async () => { try { await api.InitThreadPool(poolSize.value); poolRunning.value = true } catch {} }
-const stopPool = async () => { try { await api.StopThreadPool(); poolRunning.value = false } catch {} }
 const toggleAuto = () => { if (autoRefresh.value) { timer = setInterval(refresh, 2000) } else { clearInterval(timer); timer = null } }
 
 onMounted(refresh)
@@ -116,4 +129,6 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .stat-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; }
 .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
 .stat-val { font-size: 24px; font-weight: 700; color: var(--primary); }
+.text-success { color: var(--success); }
+.text-secondary { color: var(--text-secondary); }
 </style>

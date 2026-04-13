@@ -22,6 +22,10 @@ export function DecryptData(arg1, arg2) {
   return window['go']['app']['App']['DecryptData'](arg1, arg2);
 }
 
+export function DeleteHistory(arg1) {
+  return window['go']['app']['App']['DeleteHistory'](arg1);
+}
+
 export function DiscoverPeers() {
   return window['go']['app']['App']['DiscoverPeers']();
 }
@@ -34,8 +38,16 @@ export function EncryptData(arg1, arg2) {
   return window['go']['app']['App']['EncryptData'](arg1, arg2);
 }
 
+export function GenerateBatchDownloadLink(arg1) {
+  return window['go']['app']['App']['GenerateBatchDownloadLink'](arg1);
+}
+
 export function GenerateDownloadLink(arg1) {
   return window['go']['app']['App']['GenerateDownloadLink'](arg1);
+}
+
+export function GenerateDownloadLinkForFile(arg1) {
+  return window['go']['app']['App']['GenerateDownloadLinkForFile'](arg1);
 }
 
 export function GenerateEncryptionKey() {
@@ -70,8 +82,16 @@ export function GetPerformanceStats() {
   return window['go']['app']['App']['GetPerformanceStats']();
 }
 
+export function GetProtocolRecommendation(arg1) {
+  return window['go']['app']['App']['GetProtocolRecommendation'](arg1);
+}
+
 export function GetProtocolStatus() {
   return window['go']['app']['App']['GetProtocolStatus']();
+}
+
+export function GetSecurityInfo() {
+  return window['go']['app']['App']['GetSecurityInfo']();
 }
 
 export function GetSelectedIP() {
@@ -94,6 +114,10 @@ export function ParseEncryptedToken(arg1, arg2) {
   return window['go']['app']['App']['ParseEncryptedToken'](arg1, arg2);
 }
 
+export function RegenerateLink(arg1) {
+  return window['go']['app']['App']['RegenerateLink'](arg1);
+}
+
 export function ResetUserConfig() {
   return window['go']['app']['App']['ResetUserConfig']();
 }
@@ -106,8 +130,16 @@ export function SelectFiles(arg1) {
   return window['go']['app']['App']['SelectFiles'](arg1);
 }
 
+export function SelectProtocol(arg1, arg2, arg3) {
+  return window['go']['app']['App']['SelectProtocol'](arg1, arg2, arg3);
+}
+
 export function SetManualIP(arg1) {
   return window['go']['app']['App']['SetManualIP'](arg1);
+}
+
+export function SetProtocolPreference(arg1) {
+  return window['go']['app']['App']['SetProtocolPreference'](arg1);
 }
 
 export function SetSelectedIP(arg1) {

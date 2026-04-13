@@ -3,144 +3,467 @@
     <div class="card">
       <div class="flex-between mb-2">
         <h2>{{ t('history.title') }}</h2>
-        <button class="btn btn-sm" :disabled="!records.length || clearing" @click="clearHistory">{{ clearing ? t('common.loading') : t('history.clearHistory') }}</button>
+        <div class="flex gap-2">
+          <button class="btn btn-sm" :disabled="loading" @click="load">{{ loading ? t('common.loading') : t('history.refresh') }}</button>
+          <button class="btn btn-sm" :disabled="!records.length || clearing" @click="showClearConfirm">{{ clearing ? t('common.loading') : t('history.clearHistory') }}</button>
+        </div>
+      </div>
+      <div class="auto-refresh-row mb-3">
+        <label class="flex items-center gap-2 text-sm">
+          <input v-model="autoRefresh" type="checkbox" @change="toggleAutoRefresh" />
+          <span>{{ t('history.autoRefresh') }}</span>
+        </label>
       </div>
       <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
       <div v-else-if="!records.length" class="text-center text-secondary">{{ t('history.noHistory') }}</div>
-      <table v-else>
-        <thead><tr><th>{{ t('history.fileName') }}</th><th>{{ t('history.fileSize') }}</th><th>{{ t('history.action') }}</th><th>{{ t('history.status') }}</th><th>{{ t('history.savePath') }}</th><th>{{ t('history.time') }}</th></tr></thead>
-        <tbody>
-          <tr v-for="r in records" :key="r.id">
-            <td>{{ r.file_name }}</td>
-            <td>{{ formatSize(r.file_size) }}</td>
-            <td><span :class="['status-badge', r.action==='upload'?'status-ok':'status-warning']">{{ actionText(r.action) }}</span></td>
-            <td><span :class="['status-badge', statusClass(r.status)]">{{ statusText(r.status) }}</span></td>
-            <td class="text-sm text-secondary">{{ r.save_path || '-' }}</td>
-            <td class="text-sm">{{ formatDate(r.created_at) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 1. 新增原生 dialog 元素 -->
-    <dialog v-show="dialogShow" ref="confirmDialog" class="native-dialog">
-      <div class="dialog-content">
-        <p class="dialog-message">{{ t('common.confirm') }}</p>
-        <div class="dialog-actions">
-          <button class="btn btn-sm" @click="confirmClear">{{ t('common.submit') }}</button>
-          <button class="btn btn-sm btn-secondary" @click="cancelClear">{{ t('common.cancel') }}</button>
+      <div v-else class="history-list">
+        <div v-for="r in records" :key="r.id" class="history-item">
+          <div class="history-header">
+            <div class="history-main">
+              <span class="file-name">{{ r.file_name }}</span>
+              <span class="file-size">{{ formatSize(r.file_size) }}</span>
+              <span :class="['status-badge', r.status]">{{ t('history.status.' + r.status) }}</span>
+            </div>
+            <div class="history-actions">
+              <button v-if="r.download_link" class="btn btn-sm" @click="copyLink(r.download_link)">{{ t('history.copyLink') }}</button>
+              <button v-if="r.file_path" class="btn btn-sm btn-primary" @click="regenerateLink(r)">{{ t('history.regenerate') }}</button>
+              <button class="btn btn-sm btn-danger" @click="showDeleteConfirm(r.id)">{{ t('history.delete') }}</button>
+            </div>
+          </div>
+          <div class="history-details">
+            <div class="detail-row">
+              <span class="detail-label">{{ t('history.filePath') }}:</span>
+              <span class="detail-value" :title="r.file_path">{{ r.file_path || '-' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">{{ t('history.protocol') }}:</span>
+              <span class="detail-value protocol-badge" :class="'protocol-' + (r.protocol || 'http')">{{ r.protocol || 'HTTP' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">{{ t('history.duration') }}:</span>
+              <span class="detail-value">{{ formatDuration(r.duration) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">{{ t('history.createdAt') }}:</span>
+              <span class="detail-value">{{ formatDate(r.created_at) }}</span>
+            </div>
+            <div v-if="r.download_link" class="detail-row">
+              <span class="detail-label">{{ t('history.downloadLink') }}:</span>
+              <span class="detail-value link-value">{{ r.download_link }}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </dialog>
+    </div>
 
+    <!-- 自定义确认对话框 -->
+    <div v-if="confirmDialog.show" class="confirm-dialog-overlay" @click="cancelConfirm">
+      <div class="confirm-dialog" @click.stop>
+        <div class="confirm-dialog-header">
+          <h3>{{ confirmDialog.title }}</h3>
+        </div>
+        <div class="confirm-dialog-body">
+          <p>{{ confirmDialog.message }}</p>
+        </div>
+        <div class="confirm-dialog-footer">
+          <button class="btn" @click="cancelConfirm">{{ t('common.cancel') }}</button>
+          <button class="btn btn-danger" @click="confirmAction">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="toast" class="toast">{{ toast }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
+
 const { t } = useI18n()
 const records = ref([])
 const loading = ref(true)
 const clearing = ref(false)
-// 2. 使用 ref 获取 dialog 元素的引用
-const confirmDialog = ref(null)
-const dialogShow = ref(false)
+const autoRefresh = ref(false)
+const toast = ref('')
+let autoRefreshTimer = null
 
-const load = async () => { loading.value = true; try { records.value = (await api.GetHistory(50)) || [] } catch {} loading.value = false }
-// const clearHistory = async () => { if (!confirm(t('common.confirm'))) return; clearing.value = true; try { await api.ClearHistory(); records.value = [] } catch {} clearing.value = false }
+// 确认对话框状态
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  action: null // 确认后要执行的函数
+})
 
-// 3. 修改 clearHistory 函数，仅用于显示弹窗
-const clearHistory = () => {
-  if (!records.value.length || clearing.value) return;
-  // 使用原生 API 显示模态对话框
-  confirmDialog.value?.showModal();
-  dialogShow.value = true;
+// 显示清除确认对话框
+const showClearConfirm = () => {
+  confirmDialog.value = {
+    show: true,
+    title: t('history.confirmClearTitle'),
+    message: t('history.confirmClear'),
+    action: clearHistory
+  }
 }
 
-// 4. 新增确认按钮的处理函数
-const confirmClear = async () => {
-  clearing.value = true;
-  // 先关闭对话框
-  confirmDialog.value?.close();
-  dialogShow.value = false;
-  
+// 显示删除确认对话框
+const showDeleteConfirm = (id) => {
+  confirmDialog.value = {
+    show: true,
+    title: t('history.confirmDeleteTitle'),
+    message: t('history.confirmDelete'),
+    action: () => deleteRecord(id)
+  }
+}
+
+// 取消确认
+const cancelConfirm = () => {
+  confirmDialog.value.show = false
+  confirmDialog.value.action = null
+}
+
+// 确认执行
+const confirmAction = () => {
+  if (confirmDialog.value.action) {
+    confirmDialog.value.action()
+  }
+  confirmDialog.value.show = false
+  confirmDialog.value.action = null
+}
+
+const load = async () => { 
+  loading.value = true
+  try { 
+    const data = await api.GetHistory(50)
+    records.value = data || [] 
+  } catch (e) {
+    console.error('加载历史记录失败:', e)
+  }
+  loading.value = false 
+}
+
+// 自动刷新功能
+const toggleAutoRefresh = () => {
+  if (autoRefresh.value) {
+    autoRefreshTimer = setInterval(() => {
+      load()
+    }, 5000)
+  } else {
+    stopAutoRefresh()
+  }
+}
+
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
+const clearHistory = async () => {
+  clearing.value = true
   try {
-    await api.ClearHistory();
-    records.value = [];
-  } catch (error) {
-    console.error('清空历史失败', error);
-  } finally {
-    clearing.value = false;
+    await api.ClearHistory()
+    records.value = []
+    showToast(t('history.cleared'))
+  } catch (e) {
+    console.error(e)
+  }
+  clearing.value = false
+}
+
+const deleteRecord = async (id) => {
+  try {
+    await api.DeleteHistory(id)
+    records.value = records.value.filter(r => r.id !== id)
+    showToast(t('history.deleted'))
+  } catch (e) {
+    console.error(e)
   }
 }
 
-// 5. 新增取消按钮的处理函数
-const cancelClear = () => {
-  confirmDialog.value?.close();
-  dialogShow.value = false; 
+const copyLink = async (link) => {
+  try {
+    await navigator.clipboard.writeText(link)
+    showToast(t('history.linkCopied'))
+  } catch {
+    showToast(t('history.copyFailed'))
+  }
 }
 
-const actionText = (a) => a === 'upload' ? t('history.upload') : t('history.download')
-const statusText = (s) => ({ pending: t('history.pending'), transferring: t('history.transferring'), completed: t('history.completed'), failed: t('history.failed') })[s] || s
-const statusClass = (s) => ({ pending: 'status-warning', transferring: 'status-warning', completed: 'status-ok', failed: 'status-error' })[s] || ''
-const formatSize = (b) => { if (!b) return '0 B'; const k=1024,s=['B','KB','MB','GB'],i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(1)+' '+s[i] }
+const regenerateLink = async (record) => {
+  try {
+    // 调用API重新生成链接
+    const result = await api.RegenerateLink(record.id)
+    if (result && result.link) {
+      // 更新本地记录
+      const index = records.value.findIndex(r => r.id === record.id)
+      if (index !== -1) {
+        records.value[index].download_link = result.link
+      }
+      showToast(t('history.linkRegenerated'))
+    }
+  } catch (e) {
+    console.error('重新生成链接失败:', e)
+    showToast(t('history.regenerateFailed'))
+  }
+}
+
+const showToast = (msg) => {
+  toast.value = msg
+  setTimeout(() => { toast.value = '' }, 2000)
+}
+
 const formatDate = (d) => d ? new Date(d).toLocaleString() : ''
-onMounted(() => {
-  load();
-  if (confirmDialog.value) {
-    confirmDialog.value.close()
-    dialogShow.value = false; 
+
+const formatSize = (bytes) => {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const s = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + s[i]
+}
+
+const formatDuration = (seconds) => {
+  if (!seconds || seconds <= 0) return '-'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  if (mins > 0) {
+    return `${mins}分${secs}秒`
   }
+  return `${secs}秒`
+}
+
+onMounted(() => {
+  load()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 
 <style scoped>
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
-th { color: var(--text-secondary); font-weight: 500; }
-
-
-/* 6. 新增 dialog 相关样式 */
-.native-dialog {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  color: var(--text-primary);
-  background-color: var(--background);
-  
-  /* 居中核心代码 */
+.auto-refresh-row {
+  padding: 8px 12px;
+  background: var(--bg);
+  border-radius: 4px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  
-  /* 响应式限制 */
-  max-width: 90vw;
-  max-height: 90vh;
-  margin: auto;
 }
 
-.native-dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.5);
-  /* 可选：添加淡入淡出效果 */
-  transition: opacity 0.2s ease;
+.auto-refresh-row label {
+  cursor: pointer;
+  color: var(--text-secondary);
 }
 
-.dialog-content {
-  padding: 24px; /* 稍微增加一点内边距看起来更舒服 */
-  min-width: 280px;
-  text-align: center;
+.auto-refresh-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.history-list {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* 按钮和文字的间距 */
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: center;
   gap: 12px;
 }
 
+.history-item {
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.history-item:hover {
+  border-color: var(--primary);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.history-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.file-size {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.completed {
+  background: var(--success);
+  color: #fff;
+}
+
+.status-badge.failed {
+  background: var(--danger);
+  color: #fff;
+}
+
+.status-badge.pending {
+  background: var(--warning);
+  color: #000;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.history-details {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.detail-value {
+  color: var(--text);
+  word-break: break-all;
+}
+
+.detail-value.link-value {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--primary);
+}
+
+.protocol-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.protocol-http {
+  background: var(--info);
+  color: #fff;
+}
+
+.protocol-websocket {
+  background: var(--success);
+  color: #fff;
+}
+
+.protocol-udp {
+  background: var(--warning);
+  color: #000;
+}
+
+.protocol-p2p {
+  background: var(--primary);
+  color: #fff;
+}
+
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 9999;
+  animation: toast-in 2s ease;
+}
+
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 确认对话框样式 */
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.confirm-dialog {
+  background: #ffffff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .confirm-dialog {
+  background: #2d2d2d;
+}
+
+.confirm-dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-dialog-body {
+  padding: 20px;
+}
+
+.confirm-dialog-body p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.confirm-dialog-footer {
+  padding: 12px 20px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+}
 </style>

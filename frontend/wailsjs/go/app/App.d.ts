@@ -11,13 +11,19 @@ export function ClearHistory():Promise<void>;
 
 export function DecryptData(arg1:string,arg2:string):Promise<string>;
 
+export function DeleteHistory(arg1:number):Promise<void>;
+
 export function DiscoverPeers():Promise<Array<Record<string, any>>>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<Record<string, any>>;
 
 export function EncryptData(arg1:string,arg2:string):Promise<string>;
 
+export function GenerateBatchDownloadLink(arg1:Array<string>):Promise<Record<string, any>>;
+
 export function GenerateDownloadLink(arg1:string):Promise<Record<string, any>>;
+
+export function GenerateDownloadLinkForFile(arg1:string):Promise<Record<string, any>>;
 
 export function GenerateEncryptionKey():Promise<string>;
 
@@ -35,7 +41,11 @@ export function GetHistory(arg1:number):Promise<Array<Record<string, any>>>;
 
 export function GetPerformanceStats():Promise<Record<string, any>>;
 
+export function GetProtocolRecommendation(arg1:number):Promise<Record<string, any>>;
+
 export function GetProtocolStatus():Promise<Record<string, any>>;
+
+export function GetSecurityInfo():Promise<Record<string, any>>;
 
 export function GetSelectedIP():Promise<string>;
 
@@ -47,13 +57,19 @@ export function InitThreadPool(arg1:number):Promise<void>;
 
 export function ParseEncryptedToken(arg1:string,arg2:string):Promise<Record<string, any>>;
 
+export function RegenerateLink(arg1:number):Promise<Record<string, any>>;
+
 export function ResetUserConfig():Promise<void>;
 
 export function SaveUserConfig(arg1:Record<string, any>):Promise<void>;
 
 export function SelectFiles(arg1:boolean):Promise<Array<Record<string, any>>>;
 
+export function SelectProtocol(arg1:number,arg2:boolean,arg3:string):Promise<string>;
+
 export function SetManualIP(arg1:string):Promise<void>;
+
+export function SetProtocolPreference(arg1:string):Promise<void>;
 
 export function SetSelectedIP(arg1:string):Promise<void>;
 

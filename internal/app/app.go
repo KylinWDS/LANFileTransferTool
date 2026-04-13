@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"lanfiletransfertool/internal/environment"
 	"lanfiletransfertool/internal/p2p"
 	"lanfiletransfertool/internal/performance"
+	"lanfiletransfertool/internal/protocol"
 	"lanfiletransfertool/internal/resume"
 	"lanfiletransfertool/internal/server"
 	"lanfiletransfertool/internal/stats"
@@ -35,25 +37,26 @@ import (
 )
 
 type App struct {
-	ctx             context.Context
-	config          *config.Config
-	server          *server.Server
-	storage         *storage.Storage
-	tokenManager    *token.Manager
-	accessControl   *access.Control
-	transferService *transfer.Service
-	resumeService   *resume.Service
-	encryptionSvc   *encryption.Service
-	checksumSvc     *checksum.Service
-	perfMonitor     *performance.Monitor
-	envChecker      *environment.Checker
-	userConfig      *userconfig.Manager
-	discoverySvc    *discovery.Service
-	wsService       *websocket.Service
-	udpService      *udp.Service
-	p2pService      *p2p.Service
-	statsMonitor    *stats.Monitor
-	mu              sync.RWMutex
+	ctx              context.Context
+	config           *config.Config
+	server           *server.Server
+	storage          *storage.Storage
+	tokenManager     *token.Manager
+	accessControl    *access.Control
+	transferService  *transfer.Service
+	resumeService    *resume.Service
+	encryptionSvc    *encryption.Service
+	checksumSvc      *checksum.Service
+	perfMonitor      *performance.Monitor
+	envChecker       *environment.Checker
+	userConfig       *userconfig.Manager
+	discoverySvc     *discovery.Service
+	wsService        *websocket.Service
+	udpService       *udp.Service
+	p2pService       *p2p.Service
+	statsMonitor     *stats.Monitor
+	protocolSelector *protocol.Selector
+	mu               sync.RWMutex
 }
 
 func NewApp() *App {
@@ -65,27 +68,29 @@ func (a *App) Startup(ctx context.Context) {
 
 	var err error
 
-	cfgPath := filepath.Join(utils.GetExecutableDir(), "config.yaml")
-	a.config, err = config.LoadConfig(cfgPath)
-	if err != nil {
-		logger.Info("使用默认配置")
-		a.config = config.DefaultConfig()
-		if err := a.config.Save(cfgPath); err != nil {
-			logger.Warn("保存配置失败: %v", err)
-		}
-	}
-
+	// 步骤1: 创建数据目录
 	dataDir := filepath.Join(utils.GetExecutableDir(), "data")
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		log.Fatalf("创建数据目录失败: %v", err)
 	}
 
+	// 步骤2: 初始化配置管理器（遵循：初始化 -> 系统配置 -> 用户配置覆盖）
+	cfgManager, err := config.NewManager()
+	if err != nil {
+		logger.Warn("配置管理器初始化失败，使用默认配置: %v", err)
+		a.config = config.DefaultConfig()
+	} else {
+		a.config = cfgManager.GetConfig()
+	}
+
+	// 步骤3: 初始化存储
 	dbPath := filepath.Join(dataDir, "history.db")
 	a.storage, err = storage.NewStorage(dbPath)
 	if err != nil {
 		log.Fatalf("初始化存储失败: %v", err)
 	}
 
+	// 步骤4: 初始化各个服务，使用配置值而非硬编码
 	a.tokenManager = token.NewManager(a.config.Security.TokenExpiry, a.config.Security.SecretKey)
 	a.accessControl = access.NewControl(a.config.Security.Whitelist, a.config.Security.Blacklist)
 	a.transferService = transfer.NewService(&a.config.Transfer, dataDir)
@@ -96,16 +101,30 @@ func (a *App) Startup(ctx context.Context) {
 	a.envChecker = environment.NewChecker()
 	a.statsMonitor = stats.GetMonitor()
 
+	// 步骤5: 初始化用户配置管理器
 	userConfigPath := filepath.Join(dataDir, "user_config.json")
 	a.userConfig, err = userconfig.NewManager(userConfigPath)
 	if err != nil {
 		log.Fatalf("初始化用户配置失败: %v", err)
 	}
 
+	// 步骤6: 初始化协议选择器
+	a.protocolSelector = protocol.NewSelector(a.config)
+	// 加载用户偏好协议
+	if userCfg, err := a.userConfig.GetConfig(); err == nil && userCfg.Settings != nil {
+		if transferSettings, ok := userCfg.Settings["transfer"].(map[string]interface{}); ok {
+			if pref, ok := transferSettings["defaultProtocol"].(string); ok && pref != "" {
+				a.protocolSelector.SetPreference(protocol.Protocol(pref))
+			}
+		}
+	}
+	logger.Info("协议选择器已初始化，偏好协议: %s", a.protocolSelector.GetPreference())
+
+	// 步骤7: 创建HTTP服务器
 	a.server = server.NewServer(a.config, a.storage, a.tokenManager, a.accessControl, a.transferService, a.resumeService, a.encryptionSvc, a.checksumSvc, a.perfMonitor, a.envChecker, a.userConfig)
 
-	// 启动UDP发现服务
-	a.discoverySvc = discovery.NewService(a.config.Server.Port, "LANFileTransfer")
+	// 启动UDP发现服务（使用配置值）
+	a.discoverySvc = discovery.NewService(a.config, a.config.Server.Port, "LANFileTransfer")
 	if err := a.discoverySvc.Start(); err != nil {
 		logger.Warn("UDP发现服务启动失败: %v", err)
 	}
@@ -116,9 +135,9 @@ func (a *App) Startup(ctx context.Context) {
 		logger.Info("WebSocket传输服务已创建")
 	}
 
-	// 启动UDP传输服务
+	// 启动UDP传输服务（使用配置值）
 	if a.config.UDP.Enabled {
-		a.udpService = udp.NewService(a.config.UDP.Port, func(fileID string) (string, string, int64, error) {
+		a.udpService = udp.NewService(a.config, func(fileID string) (string, string, int64, error) {
 			info, err := a.transferService.GetFileInfo(fileID)
 			if err != nil {
 				return "", "", 0, err
@@ -130,9 +149,9 @@ func (a *App) Startup(ctx context.Context) {
 		}
 	}
 
-	// 启动P2P传输服务
+	// 启动P2P传输服务（使用配置值）
 	if a.config.P2P.Enabled {
-		a.p2pService = p2p.NewService(a.config.P2P.Port, func(fileID string) (string, string, int64, error) {
+		a.p2pService = p2p.NewService(a.config, func(fileID string) (string, string, int64, error) {
 			info, err := a.transferService.GetFileInfo(fileID)
 			if err != nil {
 				return "", "", 0, err
@@ -348,11 +367,27 @@ func (a *App) GenerateDownloadLink(filePath string) (map[string]interface{}, err
 		return nil, err
 	}
 
-	downloadToken := a.tokenManager.GenerateToken(fileInfo.ID, constants.TokenExpiryDownload)
+	// 使用新的方法生成包含文件元数据的token
+	downloadToken := a.tokenManager.GenerateTokenWithFileInfo(
+		fileInfo.ID,
+		constants.DefaultTokenExpiryDownload,
+		fileInfo.Name,
+		fileInfo.Size,
+		fileInfo.Path,
+	)
 
 	link := fmt.Sprintf("http://%s:%d/download/%s", a.getServerIP(), a.config.Server.Port, downloadToken)
 
 	qrCode, _ := utils.GenerateQRCode(link)
+
+	// // 添加历史记录
+	// record := &storage.HistoryRecord{
+	// 	FileName: fileInfo.Name,
+	// 	FileSize: fileInfo.Size,
+	// 	Action:   "upload",
+	// 	Status:   "completed",
+	// }
+	// a.storage.AddHistory(record)
 
 	return map[string]interface{}{
 		"token":     downloadToken,
@@ -361,6 +396,87 @@ func (a *App) GenerateDownloadLink(filePath string) (map[string]interface{}, err
 		"file_id":   fileInfo.ID,
 		"file_name": fileInfo.Name,
 		"file_size": fileInfo.Size,
+	}, nil
+}
+
+// GenerateDownloadLinkForFile 根据文件ID生成下载链接
+func (a *App) GenerateDownloadLinkForFile(fileID string) (map[string]interface{}, error) {
+	// 验证文件是否存在
+	fileInfo, err := a.transferService.GetFileInfo(fileID)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在: %v", err)
+	}
+
+	// 生成包含文件元数据的下载token
+	downloadToken := a.tokenManager.GenerateTokenWithFileInfo(
+		fileInfo.ID,
+		constants.DefaultTokenExpiryDownload,
+		fileInfo.Name,
+		fileInfo.Size,
+		fileInfo.Path,
+	)
+
+	return map[string]interface{}{
+		"token": downloadToken,
+		"link":  fmt.Sprintf("http://%s:%d/download/%s", a.getServerIP(), a.config.Server.Port, downloadToken),
+	}, nil
+}
+
+// GenerateBatchDownloadLink 批量生成下载链接（多个文件一个链接）
+func (a *App) GenerateBatchDownloadLink(filePaths []string) (map[string]interface{}, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("没有选择文件")
+	}
+
+	// 注册所有文件
+	var fileInfos []*transfer.FileInfo
+	var totalSize int64
+	var fileIDs []string
+	for _, path := range filePaths {
+		fileInfo, err := a.transferService.RegisterFile(path)
+		if err != nil {
+			return nil, err
+		}
+		fileInfos = append(fileInfos, fileInfo)
+		fileIDs = append(fileIDs, fileInfo.ID)
+		totalSize += fileInfo.Size
+	}
+
+	// 将文件ID列表编码为逗号分隔的字符串
+	batchFileIDs := "batch:" + strings.Join(fileIDs, ",")
+
+	// 构建文件列表JSON用于存储在token中
+	var fileList []map[string]interface{}
+	for _, info := range fileInfos {
+		fileList = append(fileList, map[string]interface{}{
+			"file_id":   info.ID,
+			"file_name": info.Name,
+			"file_size": info.Size,
+			"file_path": info.Path,
+		})
+	}
+
+	// 生成批量token
+	batchToken := a.tokenManager.GenerateTokenWithFileInfo(
+		batchFileIDs,
+		constants.DefaultTokenExpiryDownload,
+		fmt.Sprintf("批量文件 (%d个)", len(fileInfos)),
+		totalSize,
+		"",
+	)
+
+	// 构建批量下载链接
+	link := fmt.Sprintf("http://%s:%d/download/batch/%s", a.getServerIP(), a.config.Server.Port, batchToken)
+
+	qrCode, _ := utils.GenerateQRCode(link)
+
+	return map[string]interface{}{
+		"token":      batchToken,
+		"link":       link,
+		"qr_code":    qrCode,
+		"file_count": len(fileInfos),
+		"total_size": totalSize,
+		"files":      fileList,
 	}, nil
 }
 
@@ -389,6 +505,23 @@ func (a *App) GetDownloadInfo(token string) (map[string]interface{}, error) {
 		return nil, err
 	}
 
+	// 检查是否是批量下载token
+	if strings.HasPrefix(info.FileID, "batch:") {
+		return a.getBatchDownloadInfo(info.FileID)
+	}
+
+	// 优先从token中获取文件信息（支持跨重启解析）
+	if info.FileName != "" && info.FileSize > 0 {
+		return map[string]interface{}{
+			"file_id":   info.FileID,
+			"file_name": info.FileName,
+			"file_size": info.FileSize,
+			"checksum":  "",
+			"is_batch":  false,
+		}, nil
+	}
+
+	// 回退：从内存中获取文件信息
 	fileInfo, err := a.transferService.GetFileInfo(info.FileID)
 	if err != nil {
 		return nil, err
@@ -399,6 +532,41 @@ func (a *App) GetDownloadInfo(token string) (map[string]interface{}, error) {
 		"file_name": fileInfo.Name,
 		"file_size": fileInfo.Size,
 		"checksum":  fileInfo.Checksum,
+		"is_batch":  false,
+	}, nil
+}
+
+// getBatchDownloadInfo 获取批量下载信息
+func (a *App) getBatchDownloadInfo(batchFileIDs string) (map[string]interface{}, error) {
+	// 解析文件ID列表
+	idsStr := strings.TrimPrefix(batchFileIDs, "batch:")
+	fileIDs := strings.Split(idsStr, ",")
+
+	var fileList []map[string]interface{}
+	var totalSize int64
+	for _, fileID := range fileIDs {
+		fileInfo, err := a.transferService.GetFileInfo(fileID)
+		if err != nil {
+			continue
+		}
+		fileList = append(fileList, map[string]interface{}{
+			"file_id":   fileInfo.ID,
+			"file_name": fileInfo.Name,
+			"file_size": fileInfo.Size,
+		})
+		totalSize += fileInfo.Size
+	}
+
+	if len(fileList) == 0 {
+		return nil, fmt.Errorf("没有有效的文件")
+	}
+
+	return map[string]interface{}{
+		"file_name":  fmt.Sprintf("批量文件 (%d个)", len(fileList)),
+		"file_size":  totalSize,
+		"file_count": len(fileList),
+		"files":      fileList,
+		"is_batch":   true,
 	}, nil
 }
 
@@ -413,24 +581,53 @@ func (a *App) DownloadFile(token string, savePath string) (map[string]interface{
 		return nil, fmt.Errorf("访问被拒绝")
 	}
 
-	progress := make(chan float64)
-	var receivedBytes int64
+	var result *transfer.TransferResult
+	var downloadErr error
+	var fileName string
+	var fileSize int64
 
-	go func() {
-		result, downloadErr := a.transferService.DownloadFile(info.FileID, savePath, progress)
-		if downloadErr != nil {
-			logger.Error("下载失败: %v", downloadErr)
-			return
+	// 优先使用token中的文件路径（支持跨重启解析）
+	if info.FilePath != "" && info.FileName != "" {
+		fileName = info.FileName
+		fileSize = info.FileSize
+		result, downloadErr = a.transferService.DownloadFileByPath(info.FilePath, info.FileName, info.FileSize, savePath, nil)
+	} else {
+		// 回退：从内存中获取文件信息
+		fileInfo, err := a.transferService.GetFileInfo(info.FileID)
+		if err != nil {
+			return nil, err
 		}
-		receivedBytes = result.ReceivedBytes
-	}()
+		fileName = fileInfo.Name
+		fileSize = fileInfo.Size
+		result, downloadErr = a.transferService.DownloadFile(info.FileID, savePath, nil)
+	}
 
-	currentProgress := <-progress
+	if downloadErr != nil {
+		logger.Error("下载失败: %v", downloadErr)
+		// 添加失败历史记录
+		record := &storage.HistoryRecord{
+			FileName: fileName,
+			FileSize: fileSize,
+			Action:   "download",
+			Status:   "failed",
+		}
+		a.storage.AddHistory(record)
+		return nil, downloadErr
+	}
+
+	// 添加成功历史记录
+	record := &storage.HistoryRecord{
+		FileName: fileName,
+		FileSize: fileSize,
+		Action:   "download",
+		Status:   "completed",
+	}
+	a.storage.AddHistory(record)
 
 	return map[string]interface{}{
-		"received_bytes": receivedBytes,
-		"progress":       currentProgress,
-		"status":         "downloading",
+		"received_bytes": result.ReceivedBytes,
+		"progress":       100,
+		"status":         "completed",
 	}, nil
 }
 
@@ -541,12 +738,17 @@ func (a *App) GetHistory(limit int) ([]map[string]interface{}, error) {
 	result := make([]map[string]interface{}, len(records))
 	for i, r := range records {
 		result[i] = map[string]interface{}{
-			"id":         r.ID,
-			"file_name":  r.FileName,
-			"file_size":  r.FileSize,
-			"action":     r.Action,
-			"status":     r.Status,
-			"created_at": r.CreatedAt.Format(time.RFC3339),
+			"id":            r.ID,
+			"file_name":     r.FileName,
+			"file_size":     r.FileSize,
+			"file_path":     r.FilePath,
+			"action":        r.Action,
+			"status":        r.Status,
+			"protocol":      r.Protocol,
+			"download_link": r.DownloadLink,
+			"duration":      r.Duration,
+			"created_at":    r.CreatedAt.Format(time.RFC3339),
+			"updated_at":    r.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 	return result, nil
@@ -554,6 +756,69 @@ func (a *App) GetHistory(limit int) ([]map[string]interface{}, error) {
 
 func (a *App) ClearHistory() error {
 	return a.storage.ClearHistory()
+}
+
+func (a *App) DeleteHistory(id int) error {
+	return a.storage.DeleteHistory(id)
+}
+
+// RegenerateLink 重新生成下载链接
+func (a *App) RegenerateLink(historyID int) (map[string]interface{}, error) {
+	// 获取历史记录
+	record, err := a.storage.GetHistoryByID(historyID)
+	if err != nil {
+		return nil, fmt.Errorf("获取历史记录失败: %w", err)
+	}
+	if record == nil {
+		return nil, fmt.Errorf("历史记录不存在")
+	}
+
+	// 检查文件是否还存在
+	if record.FilePath == "" {
+		return nil, fmt.Errorf("无法重新生成：没有文件路径信息")
+	}
+
+	// 重新注册文件并生成新链接
+	fileID := generateFileID()
+	expiresAt := time.Now().Add(time.Duration(a.config.Security.TokenExpiry) * time.Hour)
+
+	err = a.storage.RegisterFile(fileID, record.FilePath, record.FileName, record.FileSize, "", "", &expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("注册文件失败: %w", err)
+	}
+
+	// 生成新的Token和链接
+	token := a.tokenManager.GenerateToken(fileID, time.Duration(a.config.Security.TokenExpiry)*time.Hour)
+
+	link := fmt.Sprintf("http://%s:%d/download/%s", a.getSelectedIP(), a.config.Server.Port, token)
+
+	// 更新历史记录
+	updates := map[string]interface{}{
+		"download_link": link,
+		"status":        "completed",
+	}
+	err = a.storage.UpdateHistory(historyID, updates)
+	if err != nil {
+		logger.Warn("更新历史记录失败: %v", err)
+	}
+
+	return map[string]interface{}{
+		"link":      link,
+		"file_name": record.FileName,
+		"file_size": record.FileSize,
+	}, nil
+}
+
+func generateFileID() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+func (a *App) getSelectedIP() string {
+	ip := a.userConfig.GetSelectedIP()
+	if ip == "" {
+		return "localhost"
+	}
+	return ip
 }
 
 func (a *App) DiscoverPeers() ([]map[string]interface{}, error) {
@@ -576,6 +841,18 @@ func (a *App) ParseEncryptedToken(token, customKey string) (map[string]interface
 		return nil, err
 	}
 
+	// 优先从token中获取文件信息（支持跨重启解析）
+	if tokenData.FileName != "" && tokenData.FileSize > 0 {
+		return map[string]interface{}{
+			"file_id":   tokenData.FileID,
+			"file_name": tokenData.FileName,
+			"file_size": tokenData.FileSize,
+			"checksum":  "",
+			"expires":   tokenData.Expiry,
+		}, nil
+	}
+
+	// 回退：从内存中获取文件信息
 	fileInfo, err := a.transferService.GetFileInfo(tokenData.FileID)
 	if err != nil {
 		return nil, err
@@ -596,6 +873,23 @@ func (a *App) GetDownloadInfoWithKey(token, customKey string) (map[string]interf
 		return nil, err
 	}
 
+	// 检查是否是批量下载token
+	if strings.HasPrefix(info.FileID, "batch:") {
+		return a.getBatchDownloadInfo(info.FileID)
+	}
+
+	// 优先从token中获取文件信息（支持跨重启解析）
+	if info.FileName != "" && info.FileSize > 0 {
+		return map[string]interface{}{
+			"file_id":   info.FileID,
+			"file_name": info.FileName,
+			"file_size": info.FileSize,
+			"checksum":  "",
+			"is_batch":  false,
+		}, nil
+	}
+
+	// 回退：从内存中获取文件信息
 	fileInfo, err := a.transferService.GetFileInfo(info.FileID)
 	if err != nil {
 		return nil, err
@@ -606,6 +900,7 @@ func (a *App) GetDownloadInfoWithKey(token, customKey string) (map[string]interf
 		"file_name": fileInfo.Name,
 		"file_size": fileInfo.Size,
 		"checksum":  fileInfo.Checksum,
+		"is_batch":  false,
 	}, nil
 }
 
@@ -653,4 +948,63 @@ func (a *App) GetAppInfo() map[string]interface{} {
 		"shortName": a.config.App.ShortName,
 		"version":   a.config.App.Version,
 	}
+}
+
+// GetSecurityInfo 获取安全信息（包括当前使用的密钥）
+func (a *App) GetSecurityInfo() map[string]interface{} {
+	secretKey := a.config.Security.SecretKey
+	isDefault := false
+	if secretKey == "" || secretKey == "lanftt-default-secret-key-for-sharing" {
+		isDefault = true
+		secretKey = "lanftt-default-secret-key-for-sharing"
+	}
+	return map[string]interface{}{
+		"secret_key": secretKey,
+		"is_default": isDefault,
+	}
+}
+
+// GetProtocolRecommendation 获取协议推荐
+func (a *App) GetProtocolRecommendation(fileSize int64) map[string]interface{} {
+	recommended := a.protocolSelector.RecommendProtocol(fileSize)
+	allProtocols := a.protocolSelector.GetAllProtocols()
+
+	protocols := make([]map[string]interface{}, 0, len(allProtocols))
+	for _, p := range allProtocols {
+		protocols = append(protocols, map[string]interface{}{
+			"type":        string(p.Type),
+			"name":        p.Name,
+			"description": p.Description,
+			"available":   p.Available,
+			"priority":    p.Priority,
+		})
+	}
+
+	return map[string]interface{}{
+		"recommended": string(recommended),
+		"protocols":   protocols,
+		"preference":  string(a.protocolSelector.GetPreference()),
+	}
+}
+
+// SetProtocolPreference 设置协议偏好
+func (a *App) SetProtocolPreference(pref string) error {
+	return a.protocolSelector.SetPreference(protocol.Protocol(pref))
+}
+
+// SelectProtocol 选择传输协议（用于传输前调用）
+func (a *App) SelectProtocol(fileSize int64, peerAvailable bool, userOverride string) string {
+	criteria := protocol.SelectionCriteria{
+		FileSize:        fileSize,
+		PeerAvailable:   peerAvailable,
+		NetworkType:     "lan",
+		RequireRealtime: false,
+	}
+
+	if userOverride != "" && userOverride != "auto" {
+		criteria.UserOverride = protocol.Protocol(userOverride)
+	}
+
+	selected := a.protocolSelector.Select(criteria)
+	return string(selected)
 }

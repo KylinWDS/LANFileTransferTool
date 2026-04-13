@@ -113,6 +113,58 @@ func (s *Service) DownloadFile(id, savePath string, progressChan chan float64) (
 		return nil, err
 	}
 
+	// 检查是否是文件夹
+	stat, err := os.Stat(info.Path)
+	if err != nil {
+		return nil, fmt.Errorf("获取文件信息失败: %w", err)
+	}
+
+	if stat.IsDir() {
+		// 下载整个文件夹
+		return s.downloadDirectory(info, savePath, progressChan)
+	}
+
+	// 下载单个文件
+	return s.downloadSingleFile(info, savePath, progressChan)
+}
+
+// DownloadFileByPath 根据文件路径直接下载（支持跨重启解析）
+func (s *Service) DownloadFileByPath(filePath, fileName string, fileSize int64, savePath string, progressChan chan float64) (*TransferResult, error) {
+	// 检查文件是否存在
+	stat, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在: %w", err)
+	}
+
+	// 创建临时 FileInfo
+	info := &FileInfo{
+		ID:       "token-download",
+		Path:     filePath,
+		Name:     fileName,
+		Size:     fileSize,
+		Checksum: "",
+	}
+
+	// 如果传入的文件名为空，使用实际文件名
+	if info.Name == "" {
+		info.Name = stat.Name()
+	}
+	// 如果传入的大小为0，使用实际大小
+	if info.Size == 0 {
+		info.Size = stat.Size()
+	}
+
+	if stat.IsDir() {
+		// 下载整个文件夹
+		return s.downloadDirectory(info, savePath, progressChan)
+	}
+
+	// 下载单个文件
+	return s.downloadSingleFile(info, savePath, progressChan)
+}
+
+// downloadSingleFile 下载单个文件
+func (s *Service) downloadSingleFile(info *FileInfo, savePath string, progressChan chan float64) (*TransferResult, error) {
 	srcFile, err := os.Open(info.Path)
 	if err != nil {
 		return nil, fmt.Errorf("打开源文件失败: %w", err)
@@ -139,11 +191,12 @@ func (s *Service) DownloadFile(id, savePath string, progressChan chan float64) (
 			}
 
 			transferred += int64(n)
-			
+
+			// 下载文件时：从磁盘读取，发送给客户端
 			stats.RecordSend(int64(n))
 			stats.RecordDiskRead(int64(n))
 			stats.RecordDiskWrite(int64(n))
-			
+
 			progress := float64(transferred) / float64(info.Size) * 100
 
 			if progressChan != nil {
@@ -166,7 +219,7 @@ func (s *Service) DownloadFile(id, savePath string, progressChan chan float64) (
 	speed := float64(transferred) / (1024 * 1024) / duration
 
 	result := &TransferResult{
-		FileID:        id,
+		FileID:        info.ID,
 		FileName:      info.Name,
 		TotalSize:     info.Size,
 		ReceivedBytes: transferred,
@@ -176,6 +229,119 @@ func (s *Service) DownloadFile(id, savePath string, progressChan chan float64) (
 	}
 
 	logger.Info("文件下载完成: %s (%.2f MB/s)", info.Name, speed)
+	return result, nil
+}
+
+// downloadDirectory 下载整个文件夹
+func (s *Service) downloadDirectory(info *FileInfo, savePath string, progressChan chan float64) (*TransferResult, error) {
+	// 创建目标文件夹
+	destDir := filepath.Join(savePath, info.Name)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建目标文件夹失败: %w", err)
+	}
+
+	var totalTransferred int64
+	var totalFiles int
+	startTime := time.Now()
+
+	// 遍历文件夹中的所有文件
+	err := filepath.Walk(info.Path, func(path string, fileInfo os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 跳过目录本身
+		if path == info.Path {
+			return nil
+		}
+
+		// 计算相对路径
+		relPath, err := filepath.Rel(info.Path, path)
+		if err != nil {
+			return err
+		}
+
+		destPath := filepath.Join(destDir, relPath)
+
+		if fileInfo.IsDir() {
+			// 创建子目录
+			return os.MkdirAll(destPath, fileInfo.Mode())
+		}
+
+		// 复制文件
+		srcFile, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("打开源文件失败 %s: %w", path, err)
+		}
+
+		// 确保目标目录存在
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			srcFile.Close()
+			return fmt.Errorf("创建目标目录失败: %w", err)
+		}
+
+		destFile, err := os.Create(destPath)
+		if err != nil {
+			srcFile.Close()
+			return fmt.Errorf("创建目标文件失败 %s: %w", destPath, err)
+		}
+
+		// 复制文件内容
+		buffer := make([]byte, s.config.ChunkSize)
+		var fileTransferred int64
+		for {
+			n, err := srcFile.Read(buffer)
+			if n > 0 {
+				_, writeErr := destFile.Write(buffer[:n])
+				if writeErr != nil {
+					srcFile.Close()
+					destFile.Close()
+					return fmt.Errorf("写入文件失败: %w", writeErr)
+				}
+				fileTransferred += int64(n)
+				totalTransferred += int64(n)
+
+				// 记录统计
+				stats.RecordSend(int64(n))
+				stats.RecordDiskRead(int64(n))
+				stats.RecordDiskWrite(int64(n))
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				srcFile.Close()
+				destFile.Close()
+				return fmt.Errorf("读取文件失败: %w", err)
+			}
+		}
+
+		srcFile.Close()
+		destFile.Close()
+		totalFiles++
+
+		logger.Info("文件夹下载进度: %s -> %s (%d bytes)", path, destPath, fileTransferred)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("下载文件夹失败: %w", err)
+	}
+
+	duration := time.Since(startTime).Seconds()
+	speed := float64(totalTransferred) / (1024 * 1024) / duration
+
+	result := &TransferResult{
+		FileID:        info.ID,
+		FileName:      info.Name,
+		TotalSize:     info.Size,
+		ReceivedBytes: totalTransferred,
+		Duration:      duration,
+		Speed:         speed,
+		Checksum:      info.Checksum,
+	}
+
+	logger.Info("文件夹下载完成: %s (%d 个文件, %.2f MB/s)", info.Name, totalFiles, speed)
 	return result, nil
 }
 
