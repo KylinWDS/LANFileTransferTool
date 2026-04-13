@@ -6,6 +6,7 @@ toolchain go1.24.3
 
 require (
 	github.com/gin-gonic/gin v1.9.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/crypto v0.33.0
@@ -26,7 +27,6 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect

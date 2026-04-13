@@ -109,10 +109,14 @@ func generateRealQRSVG(text string) string {
 			if inFinder || row == 6 || col == 6 {
 				continue
 			}
-			byteVal := data[bitIndex/8]
+			dataIndex := (bitIndex / 8) % dataLen
+			if dataIndex >= dataLen {
+				dataIndex = 0
+			}
+			byteVal := data[dataIndex]
 			bitPos := uint(7 - bitIndex%8)
 			modules[row][col] = (byteVal>>bitPos)&1 == 1
-			bitIndex = (bitIndex + 1) % (dataLen * 8)
+			bitIndex++
 		}
 	}
 

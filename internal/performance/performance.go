@@ -4,12 +4,17 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"lanfiletransfertool/internal/stats"
 )
 
 type Stats struct {
 	CPUUsage         float64 `json:"cpu_usage"`
 	MemoryUsage      float64 `json:"memory_usage"`
-	NetworkSpeed     float64 `json:"network_speed"`
+	NetworkSendSpeed float64 `json:"network_send_speed"`
+	NetworkRecvSpeed float64 `json:"network_recv_speed"`
+	DiskReadSpeed    float64 `json:"disk_read_speed"`
+	DiskWriteSpeed   float64 `json:"disk_write_speed"`
 	ActiveGoroutines int     `json:"active_goroutines"`
 }
 
@@ -18,10 +23,13 @@ type Monitor struct {
 	poolActive bool
 	mu         sync.RWMutex
 	lastStats  Stats
+	statsMon   *stats.Monitor
 }
 
 func NewMonitor() *Monitor {
-	m := &Monitor{}
+	m := &Monitor{
+		statsMon: stats.GetMonitor(),
+	}
 	m.collectStats()
 	return m
 }
@@ -35,11 +43,22 @@ func (m *Monitor) collectStats() {
 		numCPU = 1
 	}
 
+	var sendSpeed, recvSpeed, diskRead, diskWrite float64
+	if m.statsMon != nil {
+		sendSpeed = m.statsMon.GetSendSpeed()
+		recvSpeed = m.statsMon.GetReceiveSpeed()
+		diskRead = m.statsMon.GetDiskReadSpeed()
+		diskWrite = m.statsMon.GetDiskWriteSpeed()
+	}
+
 	m.mu.Lock()
 	m.lastStats = Stats{
 		CPUUsage:         float64(runtime.NumGoroutine()) / numCPU * 10,
 		MemoryUsage:      float64(memStats.Alloc) / float64(memStats.Sys) * 100,
-		NetworkSpeed:     float64(memStats.Alloc) / 1024 / 1024,
+		NetworkSendSpeed: sendSpeed,
+		NetworkRecvSpeed: recvSpeed,
+		DiskReadSpeed:    diskRead,
+		DiskWriteSpeed:   diskWrite,
 		ActiveGoroutines: runtime.NumGoroutine(),
 	}
 	if m.lastStats.CPUUsage > 100 {

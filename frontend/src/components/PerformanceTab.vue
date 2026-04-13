@@ -11,24 +11,47 @@
         </div>
       </div>
       <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
-      <div v-else class="stats-grid">
-        <div class="stat-item">
-          <div class="stat-label">{{ t('performance.cpuUsage') }}</div>
-          <div class="stat-val">{{ stats.cpu_usage.toFixed(1) }}%</div>
-          <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.cpu_usage+'%'}"></div></div>
+      <div v-else>
+        <h3 class="section-title">{{ t('performance.networkStats') }}</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.sendSpeed') }}</div>
+            <div class="stat-val">{{ formatSpeed(stats.network_send_speed) }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.recvSpeed') }}</div>
+            <div class="stat-val">{{ formatSpeed(stats.network_recv_speed) }}</div>
+          </div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">{{ t('performance.memoryUsage') }}</div>
-          <div class="stat-val">{{ stats.memory_usage.toFixed(1) }}%</div>
-          <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.memory_usage+'%'}"></div></div>
+        
+        <h3 class="section-title mt-4">{{ t('performance.diskStats') }}</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.diskRead') }}</div>
+            <div class="stat-val">{{ formatSpeed(stats.disk_read_speed) }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.diskWrite') }}</div>
+            <div class="stat-val">{{ formatSpeed(stats.disk_write_speed) }}</div>
+          </div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">{{ t('performance.networkSpeed') }}</div>
-          <div class="stat-val">{{ stats.network_speed.toFixed(2) }} MB/s</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">{{ t('performance.goroutines') }}</div>
-          <div class="stat-val">{{ stats.active_goroutines }}</div>
+        
+        <h3 class="section-title mt-4">{{ t('performance.systemStats') }}</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.cpuUsage') }}</div>
+            <div class="stat-val">{{ stats.cpu_usage.toFixed(1) }}%</div>
+            <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.cpu_usage+'%'}"></div></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.memoryUsage') }}</div>
+            <div class="stat-val">{{ stats.memory_usage.toFixed(1) }}%</div>
+            <div class="progress-bar mt-2"><div class="progress-bar-fill" :style="{width:stats.memory_usage+'%'}"></div></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">{{ t('performance.goroutines') }}</div>
+            <div class="stat-val">{{ stats.active_goroutines }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -51,11 +74,25 @@ import { useI18n } from 'vue-i18n'
 import api from '../api'
 const { t } = useI18n()
 const loading = ref(true)
-const stats = ref({ cpu_usage: 0, memory_usage: 0, network_speed: 0, active_goroutines: 0 })
+const stats = ref({ 
+  cpu_usage: 0, 
+  memory_usage: 0, 
+  network_send_speed: 0, 
+  network_recv_speed: 0,
+  disk_read_speed: 0,
+  disk_write_speed: 0,
+  active_goroutines: 0 
+})
 const poolSize = ref(10)
 const poolRunning = ref(false)
 const autoRefresh = ref(false)
 let timer = null
+
+const formatSpeed = (mbps) => {
+  if (!mbps || mbps < 0.01) return '0 KB/s'
+  if (mbps < 1) return (mbps * 1024).toFixed(1) + ' KB/s'
+  return mbps.toFixed(2) + ' MB/s'
+}
 
 const refresh = async () => {
   try {
@@ -74,6 +111,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 
 <style scoped>
+.section-title { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .stat-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; }
 .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }

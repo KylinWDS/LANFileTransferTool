@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"lanfiletransfertool/internal/config"
+	"lanfiletransfertool/internal/stats"
 	"lanfiletransfertool/pkg/errors"
 	"lanfiletransfertool/pkg/logger"
 	"lanfiletransfertool/pkg/utils"
@@ -138,6 +139,11 @@ func (s *Service) DownloadFile(id, savePath string, progressChan chan float64) (
 			}
 
 			transferred += int64(n)
+			
+			stats.RecordSend(int64(n))
+			stats.RecordDiskRead(int64(n))
+			stats.RecordDiskWrite(int64(n))
+			
 			progress := float64(transferred) / float64(info.Size) * 100
 
 			if progressChan != nil {

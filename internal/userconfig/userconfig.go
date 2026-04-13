@@ -182,3 +182,29 @@ func (m *Manager) applyDefaults() {
 		m.config.Settings = make(map[string]interface{})
 	}
 }
+
+func (m *Manager) GetSelectedIP() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.config.Settings == nil {
+		return ""
+	}
+
+	if ip, ok := m.config.Settings["selected_ip"].(string); ok {
+		return ip
+	}
+	return ""
+}
+
+func (m *Manager) SetSelectedIP(ip string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.config.Settings == nil {
+		m.config.Settings = make(map[string]interface{})
+	}
+
+	m.config.Settings["selected_ip"] = ip
+	return m.save()
+}

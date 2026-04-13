@@ -1,4 +1,11 @@
-# LAN File Transfer Tool - 项目实现说明
+# LAN-File-Transfer-Tool (LANftt) - 项目实现说明
+
+## 项目信息
+
+- **全称**: LAN-File-Transfer-Tool
+- **简称**: LANftt
+- **版本**: v0.2.0
+- **描述**: 轻量级、跨平台、功能完善的局域网文件传输桌面应用
 
 ## 📁 项目结构
 
@@ -7,21 +14,26 @@ LANFileTransferTool/
 ├── main.go                          # 应用入口
 ├── go.mod                           # Go模块配置
 ├── config.yaml                      # 应用配置文件
+├── wails.json                       # Wails配置文件
 ├── internal/                        # Go后端核心代码
-│   ├── app/app.go                   # 应用主逻辑
+│   ├── app/app.go                   # 应用主逻辑，Wails绑定
 │   ├── config/config.go             # 配置管理
 │   ├── server/server.go             # HTTP服务器
-│   ├── server/handlers.go           # API处理程序
 │   ├── storage/storage.go           # SQLite数据存储
-│   ├── token/token.go               # Token管理
+│   ├── token/token.go               # Token管理（AES加密）
 │   ├── access/access.go             # 访问控制（IP黑白名单）
 │   ├── transfer/transfer.go         # 文件传输核心
 │   ├── resume/resume.go             # 断点续传
 │   ├── encryption/encryption.go     # AES-256-GCM加密
 │   ├── checksum/checksum.go         # SHA256校验
-│   ├── performance/performance.go   # 性能监控和线程池
+│   ├── performance/performance.go   # 性能监控
 │   ├── environment/environment.go   # 环境检测
-│   └── userconfig/userconfig.go     # 用户配置管理
+│   ├── userconfig/userconfig.go     # 用户配置管理
+│   ├── stats/monitor.go             # 传输统计监控
+│   ├── discovery/discovery.go       # UDP设备发现服务
+│   ├── websocket/websocket.go       # WebSocket传输协议
+│   ├── udp/udp.go                   # UDP传输协议
+│   └── p2p/p2p.go                   # P2P传输协议
 ├── pkg/                             # 公共包
 │   ├── constants/constants.go       # 常量定义
 │   ├── errors/errors.go             # 错误定义
@@ -35,6 +47,7 @@ LANFileTransferTool/
     │   ├── main.js                  # Vue应用入口
     │   ├── App.vue                  # 根组件
     │   ├── style.css                # 全局样式
+    │   ├── api/index.js             # API服务
     │   ├── i18n/                    # 国际化文件
     │   │   ├── zh-CN.json           # 中文
     │   │   ├── en.json              # 英文
@@ -55,30 +68,33 @@ LANFileTransferTool/
 ### 🎯 核心功能
 
 1. **文件传输系统**
-   - 文件选择和注册
+   - 文件选择和注册（支持文件和文件夹）
    - 下载链接生成（支持二维码）
    - 批量文件下载
    - 实时进度显示
+   - 多协议支持（HTTP/WebSocket/UDP/P2P）
 
-2. **安全特性**
+2. **网络功能**
+   - IP选择器（显示所有可用IP）
+   - 手动IP输入（跨网段连接）
+   - UDP广播设备发现
+   - 自动发现局域网设备
+
+3. **安全特性**
    - AES-256-GCM加密/解密
    - SHA256文件完整性校验
-   - Token认证机制
+   - 加密Token认证机制
    - IP访问控制（黑白名单）
+   - 自定义密钥解析
 
-3. **断点续传**
-   - 传输状态保存
-   - 中断恢复支持
-   - 过期清理机制
-
-4. **性能优化**
+4. **性能监控**
+   - 实时网速监控（发送/接收）
+   - 磁盘读写速度监控
+   - CPU/内存使用率监控
    - 多线程传输池
-   - 自适应分片大小
-   - 实时性能监控（CPU、内存、网络）
-   - Goroutine数量监控
 
 5. **环境检测**
-   - 防火墙状态检测（Windows/macOS/Linux）
+   - 防火墙状态检测
    - 网络连接检查
    - 端口占用检测
    - 智能解决方案建议
@@ -87,58 +103,75 @@ LANFileTransferTool/
    - 主题切换（浅色/深色）
    - 多语言支持（中文/英文/俄语）
    - 个性化设置持久化
-   - 配置导入/导出
 
 7. **历史记录**
    - 传输记录存储
    - 操作日志查看
    - 一键清除功能
 
-## 🚀 快速开始
-
-### 前置要求
-
-- Go 1.21+
-- Node.js 16+
-- Wails CLI
-
-### 安装步骤
-
-1. **克隆项目**
-```bash
-cd /Users/kylin/Downloads/lftt/LANFileTransferTool
-```
-
-2. **安装Go依赖**
-```bash
-go mod tidy
-```
-
-3. **安装前端依赖**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-4. **运行开发模式**
-```bash
-wails dev
-```
-
-5. **构建生产版本**
-```bash
-wails build
-```
-
 ## 🔧 配置说明
 
 配置文件 `config.yaml` 包含以下设置：
 
-- **服务器配置**: 端口、监听地址
-- **传输配置**: 分片大小、最大连接数、断点续传开关
-- **安全配置**: Token有效期、密钥、IP白名单/黑名单
-- **历史记录**: 最大记录数
+```yaml
+# 应用配置
+app:
+  name: "LAN-File-Transfer-Tool"
+  short_name: "LANftt"
+  version: "0.2.0"
+
+# HTTP服务器配置
+server:
+  port: 8080              # 服务端口
+  host: "0.0.0.0"        # 监听地址
+
+# UDP发现服务配置
+discovery:
+  enabled: true           # 是否启用
+  port: 37021             # 发现服务端口
+  broadcast_interval: 5   # 广播间隔(秒)
+  peer_timeout: 30        # 节点超时(秒)
+
+# WebSocket传输配置
+websocket:
+  enabled: true           # 是否启用
+  port_offset: 0          # 端口偏移
+  chunk_size: 65536       # 数据块大小
+
+# UDP传输配置
+udp:
+  enabled: true           # 是否启用
+  port: 37022             # UDP端口
+  chunk_size: 32768       # 数据块大小
+
+# P2P传输配置
+p2p:
+  enabled: true           # 是否启用
+  port: 37023             # P2P端口
+  chunk_size: 65536       # 数据块大小
+
+# 文件传输配置
+transfer:
+  max_connections: 10     # 最大连接数
+  chunk_size: 1048576     # 分片大小(1MB)
+  enable_resume: true     # 启用断点续传
+
+# 安全配置
+security:
+  token_expiry: 86400     # Token有效期(秒)
+  secret_key: "..."       # 加密密钥
+  whitelist: []           # IP白名单
+  blacklist: []           # IP黑名单
+
+# 历史记录配置
+history:
+  max_records: 100        # 最大记录数
+
+# 性能配置
+performance:
+  pool_size: 10           # 线程池大小
+  monitor_interval: 2     # 监控间隔(秒)
+```
 
 ## 📡 API接口
 
@@ -184,12 +217,38 @@ wails build
 - SQLite (数据存储)
 - AES-256-GCM (加密)
 - SHA256 (校验)
+- gorilla/websocket (WebSocket)
 
 **前端 (Vue 3)**:
 - Vue 3 Composition API
 - Vite (构建工具)
 - vue-i18n (国际化)
 - CSS Variables (主题系统)
+- qrcode (二维码生成)
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Go 1.21+
+- Node.js 16+
+- Wails CLI
+
+### 安装步骤
+
+```bash
+# 安装Go依赖
+go mod tidy
+
+# 安装前端依赖
+cd frontend && npm install && cd ..
+
+# 运行开发模式
+wails dev
+
+# 构建生产版本
+wails build
+```
 
 ## 📝 使用说明
 
