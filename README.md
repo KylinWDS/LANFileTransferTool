@@ -4,10 +4,10 @@
 
 **轻量级、跨平台、功能完善的局域网文件传输桌面应用**
 
-[!\[Go Version\](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat\&logo=go null)](https://golang.org)
-[!\[Wails\](https://img.shields.io/badge/Wails-v2-2196F3?style=flat null)](https://wails.io)
-[!\[License\](https://img.shields.io/badge/License-MIT-blue.svg null)](LICENSE)
-[!\[Platform\](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey null)](https://github.com/yourusername/lanfiletransfertool)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Wails](https://img.shields.io/badge/Wails-v2-2196F3?style=flat)](https://wails.io)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/yourusername/lanfiletransfertool)
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [技术架构](#-技术架构)
 
