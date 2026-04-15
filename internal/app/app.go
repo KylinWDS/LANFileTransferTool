@@ -68,11 +68,26 @@ func (a *App) Startup(ctx context.Context) {
 
 	var err error
 
-	// 步骤1: 创建数据目录
-	dataDir := filepath.Join(utils.GetExecutableDir(), "data")
+	// 步骤1: 确定数据目录 (使用用户可写目录)
+	dataDir := utils.GetAppDataDir()
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Fatalf("创建数据目录失败: %v", err)
+		// 使用临时目录作为后备
+		dataDir = os.TempDir()
 	}
+
+	// 步骤1.5: 初始化日志系统 (必须在任何日志调用之前)
+	logPath := filepath.Join(dataDir, "logs")
+	os.MkdirAll(logPath, 0755)
+	logFile := filepath.Join(logPath, "app.log")
+	if err := logger.Init(logFile); err != nil {
+		log.Printf("警告: 无法初始化日志文件: %v，日志将仅输出到控制台", err)
+	}
+
+	// 步骤2: 创建数据目录 (仅用于配置文件)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		logger.Warn("创建数据目录失败: %v", err)
+	}
+	logger.Info("数据目录: %s", dataDir)
 
 	// 步骤2: 初始化配置管理器（遵循：初始化 -> 系统配置 -> 用户配置覆盖）
 	cfgManager, err := config.NewManager()

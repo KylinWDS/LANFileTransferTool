@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write # 必须有写入权限才能创建 Release
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_OPTIONS: "--disable-warning=DEP0169"
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}
@@ -41,7 +45,7 @@ jobs:
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20.7'
+          node-version: '20'
 
       # 4. 安装前端依赖 (关键修复：适配你的目录结构)
       - name: 📦 Install Frontend Deps
@@ -126,6 +130,6 @@ jobs:
           # 上传 artifacts 目录下的所有内容
           files: |
             artifacts/**/*
-          generateReleaseNotes: true
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

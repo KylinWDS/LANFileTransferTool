@@ -118,7 +118,7 @@ const decrypt = async () => {
     showToast(t('encryption.emptyInput'), 'warning')
     return
   }
-  
+
   decrypting.value = true
   try {
     plainText.value = ''
@@ -126,7 +126,14 @@ const decrypt = async () => {
     showToast(t('encryption.decryptSuccess'), 'success')
   } catch (e) {
     console.error('解密失败:', e)
-    showToast(t('encryption.decryptFailed'), 'error')
+    const msg = e?.message || String(e)
+    if (msg.includes('Base64') || msg.includes('base64')) {
+      showToast('密文格式错误：不是有效的Base64编码', 'error')
+    } else if (msg.includes('密钥不匹配')) {
+      showToast('解密失败：密钥不匹配', 'error')
+    } else {
+      showToast(t('encryption.decryptFailed'), 'error')
+    }
   } finally {
     decrypting.value = false
   }

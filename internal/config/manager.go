@@ -34,10 +34,13 @@ func NewManager() (*Manager, error) {
 		mergedCfg: DefaultConfig(),
 	}
 
-	// 设置配置路径
-	execDir := utils.GetExecutableDir()
-	m.configPath = filepath.Join(execDir, "config.yaml")
-	m.userCfgPath = filepath.Join(execDir, "data", "user_config.json")
+	// 设置配置路径 (使用用户可写目录)
+	appDataDir := utils.GetAppDataDir()
+	os.MkdirAll(appDataDir, 0755)
+	m.configPath = filepath.Join(appDataDir, "config.yaml")
+	m.userCfgPath = filepath.Join(appDataDir, "user_config.json")
+	logger.Info("配置路径: %s", m.configPath)
+	logger.Info("用户配置路径: %s", m.userCfgPath)
 
 	// 执行配置加载
 	if err := m.Load(); err != nil {
