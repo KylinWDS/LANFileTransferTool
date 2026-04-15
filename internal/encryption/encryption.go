@@ -65,13 +65,14 @@ func (s *Service) Decrypt(cipherText string, key string) (string, error) {
 		return "", errors.New("密钥不能为空")
 	}
 
+	cipherText = strings.TrimSpace(cipherText)
 	data, err := base64.StdEncoding.DecodeString(cipherText)
 	if err != nil {
-		return "", err
+		return "", errors.New("密文格式错误：不是有效的Base64编码，请检查输入是否正确")
 	}
 
 	if len(data) < 48 {
-		return "", errors.New("密文格式错误")
+		return "", errors.New("密文格式错误：数据长度不足，可能是密钥不匹配或密文已损坏")
 	}
 
 	salt := data[:16]
@@ -79,28 +80,28 @@ func (s *Service) Decrypt(cipherText string, key string) (string, error) {
 
 	aesKey, err := scrypt.Key([]byte(key), salt, 32768, 8, 1, 32)
 	if err != nil {
-		return "", err
+		return "", errors.New("密钥派生失败")
 	}
 
 	block, err := aes.NewCipher(aesKey)
 	if err != nil {
-		return "", err
+		return "", errors.New("cipher初始化失败")
 	}
 
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", err
+		return "", errors.New("GCM初始化失败")
 	}
 
 	nonceSize := aesGCM.NonceSize()
 	if len(ciphertext) < nonceSize {
-		return "", errors.New("密文长度不足")
+		return "", errors.New("密文格式错误：数据不完整")
 	}
 
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plainText, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return "", err
+		return "", errors.New("解密失败：密钥不匹配或密文已损坏")
 	}
 
 	return string(plainText), nil

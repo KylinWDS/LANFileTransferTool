@@ -20,6 +20,44 @@ func GetExecutableDir() string {
 	return filepath.Dir(exe)
 }
 
+func GetAppDataDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return GetExecutableDir()
+	}
+
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Application Support", "LANftt")
+	case "windows":
+		return filepath.Join(home, "AppData", "Local", "LANftt")
+	default:
+		configDir := filepath.Join(home, ".config", "lanftt")
+		os.MkdirAll(configDir, 0755)
+		return configDir
+	}
+}
+
+func GetConfigPath() string {
+	return filepath.Join(GetAppDataDir(), "user_config.json")
+}
+
+func GetLogPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(GetExecutableDir(), "data", "logs")
+	}
+
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(home, "Library", "Logs", "LANftt")
+	case "windows":
+		return filepath.Join(home, "AppData", "Local", "LANftt", "logs")
+	default:
+		return filepath.Join(home, ".config", "lanftt", "logs")
+	}
+}
+
 func GenerateID() string {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
