@@ -1008,3 +1008,75 @@ func (a *App) SelectProtocol(fileSize int64, peerAvailable bool, userOverride st
 	selected := a.protocolSelector.Select(criteria)
 	return string(selected)
 }
+
+// GetLogs 获取所有日志
+func (a *App) GetLogs() []map[string]interface{} {
+	logs := logger.GetLogs()
+	result := make([]map[string]interface{}, len(logs))
+	for i, entry := range logs {
+		result[i] = map[string]interface{}{
+			"level":     entry.Level,
+			"message":   entry.Message,
+			"timestamp": entry.Timestamp,
+		}
+	}
+	return result
+}
+
+// ClearLogs 清除所有日志
+func (a *App) ClearLogs() {
+	logger.ClearLogs()
+}
+
+// LogInfo 记录信息日志（前端调用）
+func (a *App) LogInfo(message string) {
+	logger.Info("[Frontend] %s", message)
+}
+
+// LogWarn 记录警告日志（前端调用）
+func (a *App) LogWarn(message string) {
+	logger.Warn("[Frontend] %s", message)
+}
+
+// LogError 记录错误日志（前端调用）
+func (a *App) LogError(message string) {
+	logger.Error("[Frontend] %s", message)
+}
+
+// LogDebug 记录调试日志（前端调用）
+func (a *App) LogDebug(message string) {
+	logger.Debug("[Frontend] %s", message)
+}
+
+// SaveTextFile 保存文本文件到指定路径
+func (a *App) SaveTextFile(filePath string, content string) error {
+	err := os.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		logger.Error("保存文件失败: %v", err)
+		return err
+	}
+	logger.Info("文件已保存: %s", filePath)
+	return nil
+}
+
+// SelectSaveFile 选择保存文件路径
+func (a *App) SelectSaveFile(defaultFilename string) (string, error) {
+	result, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "保存文件",
+		DefaultFilename: defaultFilename,
+	})
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+// ReadTextFile 读取文本文件
+func (a *App) ReadTextFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		logger.Error("读取文件失败: %v", err)
+		return "", err
+	}
+	return string(content), nil
+}

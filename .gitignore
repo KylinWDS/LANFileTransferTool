@@ -10,6 +10,8 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+.trae/
+.qoder/
 *.swp
 *.swo
 *~
@@ -61,3 +63,7 @@ config.yaml.backup
 
 # User config
 # user_config.json
+
+# skill files
+skills/
+.trae/skills/

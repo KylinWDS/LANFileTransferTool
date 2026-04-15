@@ -14,10 +14,24 @@
           <span>{{ t('history.autoRefresh') }}</span>
         </label>
       </div>
-      <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
-      <div v-else-if="!records.length" class="text-center text-secondary">{{ t('history.noHistory') }}</div>
+      <div v-if="loading" class="skeleton-container">
+        <div v-for="i in 3" :key="i" class="skeleton-card skeleton">
+          <div class="skeleton skeleton-title"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text"></div>
+        </div>
+      </div>
+      <div v-else-if="!records.length" class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-text">{{ t('history.noHistory') }}</div>
+      </div>
       <div v-else class="history-list">
-        <div v-for="r in records" :key="r.id" class="history-item">
+        <div 
+          v-for="r in records" 
+          :key="r.id" 
+          v-memo="[r.id, r.status, r.download_link]"
+          class="history-item slide-up"
+        >
           <div class="history-header">
             <div class="history-main">
               <span class="file-name">{{ r.file_name }}</span>
@@ -466,4 +480,30 @@ onUnmounted(() => {
   gap: 12px;
   border-top: 1px solid var(--border);
 }
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-card {
+  height: 120px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.skeleton-card .skeleton-title {
+  width: 40%;
+  height: 18px;
+  margin-bottom: 12px;
+}
+
+.skeleton-card .skeleton-text {
+  width: 80%;
+  height: 14px;
+}
+
 </style>

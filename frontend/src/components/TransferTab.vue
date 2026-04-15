@@ -38,7 +38,12 @@
               </span>
             </span>
           </div>
-          <button class="btn btn-sm" @click="selectedFiles.splice(i, 1)">✕</button>
+          <button 
+            class="btn btn-sm btn-icon" 
+            @click="selectedFiles.splice(i, 1)"
+            :aria-label="t('accessibility.removeFile', { name: file.name })"
+            :title="t('accessibility.remove')"
+          >✕</button>
         </div>
         <div class="flex gap-2 mt-4">
           <button v-if="selectedFiles.length === 1" class="btn btn-primary" :disabled="generating" @click="generateLink">
@@ -57,10 +62,27 @@
         <h3>{{ t('transfer.discoveredPeers') }}</h3>
         <button class="btn btn-sm" @click="discoverPeers">{{ t('transfer.refreshPeers') }}</button>
       </div>
-      <div v-if="discovering" class="text-center text-secondary">{{ t('common.loading') }}</div>
-      <div v-else-if="!discoveredPeers.length" class="text-center text-secondary">{{ t('transfer.noPeers') }}</div>
+      <div v-if="discovering" class="skeleton-container">
+        <div v-for="i in 2" :key="i" class="skeleton-peer skeleton">
+          <div class="skeleton skeleton-avatar"></div>
+          <div class="skeleton-content">
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text-sm"></div>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="!discoveredPeers.length" class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">{{ t('transfer.noPeers') }}</div>
+      </div>
       <div v-else class="peer-list">
-        <div v-for="peer in discoveredPeers" :key="peer.ip + ':' + peer.port" class="peer-item" @click="connectToPeer(peer)">
+        <div 
+          v-for="peer in discoveredPeers" 
+          :key="peer.ip + ':' + peer.port" 
+          v-memo="[peer.ip, peer.port, peer.name]"
+          class="peer-item hover-lift" 
+          @click="connectToPeer(peer)"
+        >
           <div class="peer-info">
             <span class="peer-name">{{ peer.name || 'Unknown' }}</span>
             <span class="text-secondary text-sm">{{ peer.ip }}:{{ peer.port }}</span>
@@ -73,7 +95,12 @@
     <div v-for="(link, i) in generatedLinks" :key="i" class="card link-card">
       <div class="link-header">
         <h3>{{ t('transfer.linkGenerated') }}</h3>
-        <button class="btn-close" @click="generatedLinks.splice(i, 1)" title="{{ t('common.close') }}">
+        <button 
+          class="btn-close" 
+          @click="generatedLinks.splice(i, 1)" 
+          :aria-label="t('accessibility.closeLinkCard')"
+          :title="t('common.close')"
+        >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -392,13 +419,32 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 6px;
   margin-bottom: 6px;
+  transition: all var(--transition-fast);
+}
+.file-item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
 }
 .file-name { font-weight: 500; margin-right: 8px; }
 .download-count {
   color: var(--primary);
   font-weight: 500;
 }
-.link-card { border-left: 3px solid var(--primary); position: relative; }
+.link-card { 
+  border-left: 3px solid var(--primary); 
+  position: relative; 
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .link-header {
   display: flex;
   justify-content: space-between;
@@ -552,4 +598,39 @@ onUnmounted(() => {
   80% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-peer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.skeleton-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.skeleton-text-sm {
+  width: 60%;
+  height: 12px;
+}
+
 </style>

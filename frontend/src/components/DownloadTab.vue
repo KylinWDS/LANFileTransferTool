@@ -12,11 +12,22 @@
       
       <div class="key-section mt-3">
         <div class="key-input-row">
-          <input v-model="customKey" class="input key-input" type="password" :placeholder="t('download.customKeyHint')" />
+          <label for="customKeyInput" class="sr-only">{{ t('download.customKeyHint') }}</label>
+          <input 
+            id="customKeyInput"
+            v-model="customKey" 
+            class="input key-input" 
+            type="password" 
+            :placeholder="t('download.customKeyHint')" 
+          />
         </div>
         <label class="key-checkbox-row">
-          <input type="checkbox" v-model="useCustomKey" />
-          <span>{{ t('download.useCustomKey') }}</span>
+          <input 
+            type="checkbox" 
+            id="useCustomKeyCheckbox"
+            v-model="useCustomKey" 
+          />
+          <span for="useCustomKeyCheckbox">{{ t('download.useCustomKey') }}</span>
         </label>
       </div>
 
@@ -92,19 +103,31 @@
           </button>
         </div>
       </div>
-      <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
-      <div v-else-if="!files.length" class="text-center text-secondary">{{ t('download.noFilesAvailable') }}</div>
-      <table v-else>
-        <thead><tr><th><input type="checkbox" :checked="allSelected" @change="toggleAll" /></th><th>{{ t('transfer.fileName') }}</th><th>{{ t('transfer.fileSize') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr v-for="f in files" :key="f.id">
-            <td><input type="checkbox" :value="f.id" v-model="selectedIDs" /></td>
-            <td>{{ f.name }}</td>
-            <td>{{ formatSize(f.size) }}</td>
-            <td><button class="btn btn-sm btn-primary" @click="downloadOne(f)">{{ t('download.download') }}</button></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="loading" class="skeleton-container">
+        <div v-for="i in 3" :key="i" class="skeleton-row skeleton">
+          <div class="skeleton skeleton-checkbox"></div>
+          <div class="skeleton skeleton-filename"></div>
+          <div class="skeleton skeleton-size"></div>
+          <div class="skeleton skeleton-btn"></div>
+        </div>
+      </div>
+      <div v-else-if="!files.length" class="empty-state">
+        <div class="empty-state-icon">📁</div>
+        <div class="empty-state-text">{{ t('download.noFilesAvailable') }}</div>
+      </div>
+      <div v-else class="table-wrapper">
+        <table>
+          <thead><tr><th><input type="checkbox" :checked="allSelected" @change="toggleAll" aria-label="全选" /></th><th>{{ t('transfer.fileName') }}</th><th>{{ t('transfer.fileSize') }}</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="f in files" :key="f.id">
+              <td><input type="checkbox" :value="f.id" v-model="selectedIDs" :aria-label="'选择 ' + f.name" /></td>
+              <td>{{ f.name }}</td>
+              <td>{{ formatSize(f.size) }}</td>
+              <td><button class="btn btn-sm btn-primary" @click="downloadOne(f)">{{ t('download.download') }}</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <!-- 批量下载进度 -->
       <div v-if="batchDownloading" class="batch-progress mt-4">
@@ -416,7 +439,7 @@ const downloadOne = async (f) => {
   } catch (e) { 
     console.error(e) 
     downloading.value = false
-    alert(t('download.downloadFailed'))
+    showToast(t('download.downloadFailed'))
   }
 }
 
@@ -460,7 +483,7 @@ const batchDownload = async () => {
   } catch (e) { 
     console.error(e)
     batchDownloading.value = false
-    alert(t('download.downloadFailed'))
+    showToast(t('download.downloadFailed'))
   }
 }
 
@@ -550,11 +573,38 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 6px;
   border-left: 3px solid var(--success);
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
 th { color: var(--text-secondary); font-weight: 500; }
+
+/* 响应式表格 */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  min-width: 500px;
+}
+
+@media (max-width: 640px) {
+  table { font-size: 12px; }
+  th, td { padding: 6px 4px; }
+}
 
 /* 进度条样式 */
 .download-progress, .batch-progress {
@@ -668,4 +718,42 @@ th { color: var(--text-secondary); font-weight: 500; }
     transform: translateX(-50%) translateY(0);
   }
 }
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.skeleton-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.skeleton-filename {
+  flex: 1;
+  height: 14px;
+}
+
+.skeleton-size {
+  width: 80px;
+  height: 14px;
+}
+
+.skeleton-btn {
+  width: 60px;
+  height: 28px;
+  border-radius: 4px;
+}
+
 </style>

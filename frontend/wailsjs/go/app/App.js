@@ -18,6 +18,10 @@ export function ClearHistory() {
   return window['go']['app']['App']['ClearHistory']();
 }
 
+export function ClearLogs() {
+  return window['go']['app']['App']['ClearLogs']();
+}
+
 export function DecryptData(arg1, arg2) {
   return window['go']['app']['App']['DecryptData'](arg1, arg2);
 }
@@ -78,6 +82,10 @@ export function GetHistory(arg1) {
   return window['go']['app']['App']['GetHistory'](arg1);
 }
 
+export function GetLogs() {
+  return window['go']['app']['App']['GetLogs']();
+}
+
 export function GetPerformanceStats() {
   return window['go']['app']['App']['GetPerformanceStats']();
 }
@@ -110,8 +118,28 @@ export function InitThreadPool(arg1) {
   return window['go']['app']['App']['InitThreadPool'](arg1);
 }
 
+export function LogDebug(arg1) {
+  return window['go']['app']['App']['LogDebug'](arg1);
+}
+
+export function LogError(arg1) {
+  return window['go']['app']['App']['LogError'](arg1);
+}
+
+export function LogInfo(arg1) {
+  return window['go']['app']['App']['LogInfo'](arg1);
+}
+
+export function LogWarn(arg1) {
+  return window['go']['app']['App']['LogWarn'](arg1);
+}
+
 export function ParseEncryptedToken(arg1, arg2) {
   return window['go']['app']['App']['ParseEncryptedToken'](arg1, arg2);
+}
+
+export function ReadTextFile(arg1) {
+  return window['go']['app']['App']['ReadTextFile'](arg1);
 }
 
 export function RegenerateLink(arg1) {
@@ -120,6 +148,10 @@ export function RegenerateLink(arg1) {
 
 export function ResetUserConfig() {
   return window['go']['app']['App']['ResetUserConfig']();
+}
+
+export function SaveTextFile(arg1, arg2) {
+  return window['go']['app']['App']['SaveTextFile'](arg1, arg2);
 }
 
 export function SaveUserConfig(arg1) {
@@ -132,6 +164,10 @@ export function SelectFiles(arg1) {
 
 export function SelectProtocol(arg1, arg2, arg3) {
   return window['go']['app']['App']['SelectProtocol'](arg1, arg2, arg3);
+}
+
+export function SelectSaveFile(arg1) {
+  return window['go']['app']['App']['SelectSaveFile'](arg1);
 }
 
 export function SetManualIP(arg1) {
