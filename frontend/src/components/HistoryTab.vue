@@ -208,19 +208,24 @@ const copyLink = async (link) => {
 
 const regenerateLink = async (record) => {
   try {
-    // 调用API重新生成链接
     const result = await api.RegenerateLink(record.id)
     if (result && result.link) {
-      // 更新本地记录
       const index = records.value.findIndex(r => r.id === record.id)
       if (index !== -1) {
         records.value[index].download_link = result.link
       }
       showToast(t('history.linkRegenerated'))
+    } else {
+      showToast(t('history.regenerateFailed'))
     }
   } catch (e) {
     console.error('重新生成链接失败:', e)
-    showToast(t('history.regenerateFailed'))
+    const msg = e?.message || e?.error || String(e)
+    if (msg && msg !== '[object Object]') {
+      showToast(msg)
+    } else {
+      showToast(t('history.regenerateFailed'))
+    }
   }
 }
 
