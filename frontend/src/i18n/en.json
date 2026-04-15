@@ -122,7 +122,10 @@
     "fileList": "File List ({count})",
     "currentFile": "Current File",
     "files": "files",
-    "filesPerSec": "files/sec"
+    "filesPerSec": "files/sec",
+    "received": "Received",
+    "timeElapsed": "Time Elapsed",
+    "timeRemaining": "Time Remaining"
   },
   "history": {
     "title": "History",
@@ -167,7 +170,14 @@
     "keyLength": "Key Length",
     "algorithm": "Algorithm",
     "copyKey": "Copy Key",
-    "keyGenerated": "Key Generated"
+    "keyGenerated": "Key Generated",
+    "keyGenerateFailed": "Failed to generate key",
+    "encryptSuccess": "Encrypted successfully",
+    "decryptSuccess": "Decrypted successfully",
+    "emptyInput": "Please enter content and key",
+    "keyPlaceholder": "Enter or generate key",
+    "plainTextPlaceholder": "Enter text to encrypt",
+    "cipherTextPlaceholder": "Enter cipher to decrypt"
   },
   "performance": {
     "title": "Performance",
@@ -266,7 +276,13 @@
     "protocolPreference": "Protocol Preference",
     "autoSelect": "Auto Select",
     "autoSelectHint": "System will automatically select the best protocol based on file size and network",
-    "protocolPreferenceSaved": "Protocol preference saved"
+    "protocolPreferenceSaved": "Protocol preference saved",
+    "protocolPreferenceFailed": "Failed to set protocol preference",
+    "loadFailed": "Failed to load settings",
+    "resetFailed": "Failed to reset settings",
+    "exportSuccess": "Settings exported",
+    "exportFailed": "Failed to export settings",
+    "resetConfirmTitle": "Reset Settings"
   },
   "protocols": {
     "title": "Transfer Protocol",
@@ -279,5 +295,30 @@
     "websocketDesc": "WebSocket protocol, real-time",
     "udpDesc": "UDP protocol, fast speed",
     "p2pDesc": "P2P direct connection, no server relay"
+  },
+  "logs": {
+    "title": "System Logs",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "export": "Export",
+    "autoRefresh": "Auto Refresh",
+    "filterLevel": "Filter Level",
+    "allLevels": "All Levels",
+    "total": "Total",
+    "noLogs": "No logs available",
+    "refreshFailed": "Failed to refresh logs",
+    "clearFailed": "Failed to clear logs",
+    "clearConfirmTitle": "Clear Logs",
+    "clearConfirm": "Are you sure you want to clear all logs?",
+    "cleared": "Logs cleared",
+    "exported": "Logs exported",
+    "exportFailed": "Failed to export logs"
+  },
+  "accessibility": {
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "removeFile": "Remove file {name}",
+    "remove": "Remove",
+    "closeLinkCard": "Close link card"
   }
 }

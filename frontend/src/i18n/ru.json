@@ -122,7 +122,10 @@
     "fileList": "Список файлов ({count})",
     "currentFile": "Текущий файл",
     "files": "файлов",
-    "filesPerSec": "файлов/сек"
+    "filesPerSec": "файлов/сек",
+    "received": "Получено",
+    "timeElapsed": "Прошло времени",
+    "timeRemaining": "Осталось времени"
   },
   "history": {
     "title": "История",
@@ -167,7 +170,14 @@
     "keyLength": "Длина ключа",
     "algorithm": "Алгоритм",
     "copyKey": "Копировать ключ",
-    "keyGenerated": "Ключ создан"
+    "keyGenerated": "Ключ создан",
+    "keyGenerateFailed": "Ошибка создания ключа",
+    "encryptSuccess": "Успешно зашифровано",
+    "decryptSuccess": "Успешно расшифровано",
+    "emptyInput": "Введите данные и ключ",
+    "keyPlaceholder": "Введите или создайте ключ",
+    "plainTextPlaceholder": "Введите текст для шифрования",
+    "cipherTextPlaceholder": "Введите шифр для расшифровки"
   },
   "performance": {
     "title": "Производительность",
@@ -266,7 +276,13 @@
     "protocolPreference": "Предпочтение протокола",
     "autoSelect": "Автовыбор",
     "autoSelectHint": "Система автоматически выберет лучший протокол на основе размера файла и сети",
-    "protocolPreferenceSaved": "Предпочтение протокола сохранено"
+    "protocolPreferenceSaved": "Предпочтение протокола сохранено",
+    "protocolPreferenceFailed": "Ошибка установки предпочтения протокола",
+    "loadFailed": "Ошибка загрузки настроек",
+    "resetFailed": "Ошибка сброса настроек",
+    "exportSuccess": "Настройки экспортированы",
+    "exportFailed": "Ошибка экспорта настроек",
+    "resetConfirmTitle": "Сброс настроек"
   },
   "protocols": {
     "title": "Протокол передачи",
@@ -279,5 +295,30 @@
     "websocketDesc": "WebSocket протокол, реальное время",
     "udpDesc": "UDP протокол, высокая скорость",
     "p2pDesc": "P2P прямое соединение, без сервера"
+  },
+  "logs": {
+    "title": "Системные журналы",
+    "refresh": "Обновить",
+    "clear": "Очистить",
+    "export": "Экспорт",
+    "autoRefresh": "Автообновление",
+    "filterLevel": "Фильтр уровня",
+    "allLevels": "Все уровни",
+    "total": "Всего",
+    "noLogs": "Нет журналов",
+    "refreshFailed": "Ошибка обновления журналов",
+    "clearFailed": "Ошибка очистки журналов",
+    "clearConfirmTitle": "Очистить журналы",
+    "clearConfirm": "Вы уверены, что хотите очистить все журналы?",
+    "cleared": "Журналы очищены",
+    "exported": "Журналы экспортированы",
+    "exportFailed": "Ошибка экспорта журналов"
+  },
+  "accessibility": {
+    "switchToDark": "Переключить на темную тему",
+    "switchToLight": "Переключить на светлую тему",
+    "removeFile": "Удалить файл {name}",
+    "remove": "Удалить",
+    "closeLinkCard": "Закрыть карточку ссылки"
   }
 }

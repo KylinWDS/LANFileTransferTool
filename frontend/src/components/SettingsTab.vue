@@ -144,7 +144,7 @@
     <div class="card">
       <div class="flex gap-2">
         <button class="btn btn-primary" @click="saveSettings">{{ t('settings.save') }}</button>
-        <button class="btn" @click="resetSettings">{{ t('settings.reset') }}</button>
+        <button class="btn" @click="showResetConfirm">{{ t('settings.reset') }}</button>
         <button class="btn btn-secondary" @click="exportSettings">{{ t('settings.export') }}</button>
         <button class="btn btn-secondary" @click="importSettings">{{ t('settings.import') }}</button>
       </div>
@@ -167,11 +167,30 @@
         <span class="text-sm text-secondary">{{ configPath }}</span>
       </div>
     </div>
+
+    <!-- 自定义确认对话框 -->
+    <div v-if="confirmDialog.show" class="confirm-dialog-overlay" @click="cancelConfirm">
+      <div class="confirm-dialog" @click.stop>
+        <div class="confirm-dialog-header">
+          <h3>{{ confirmDialog.title }}</h3>
+        </div>
+        <div class="confirm-dialog-body">
+          <p>{{ confirmDialog.message }}</p>
+        </div>
+        <div class="confirm-dialog-footer">
+          <button class="btn" @click="cancelConfirm">{{ t('common.cancel') }}</button>
+          <button class="btn btn-danger" @click="confirmAction">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../api'
 
@@ -189,15 +208,21 @@ const props = defineProps({
 const { t, locale } = useI18n()
 const emit = defineEmits(['settings-change', 'theme-change', 'language-change'])
 
-// 应用信息
 const appInfo = ref({ name: 'LANftt', version: 'v0.2.0' })
 const configPath = ref('')
 
-// 设置状态
 const savedMsg = ref('')
 const saveSuccess = ref(true)
 
-// 默认设置
+const toast = ref('')
+const toastType = ref('')
+
+const showToast = (message, type = 'info') => {
+  toast.value = message
+  toastType.value = type
+  setTimeout(() => { toast.value = '' }, 3000)
+}
+
 const defaultSettings = {
   theme: 'light',
   language: 'zh-CN',
@@ -209,7 +234,7 @@ const defaultSettings = {
     chunkSize: 1,
     maxConnections: 10,
     enableResume: true,
-    defaultProtocol: 'auto' // 默认自动选择
+    defaultProtocol: 'auto'
   },
   protocols: {
     websocket: true,
@@ -231,25 +256,48 @@ const defaultSettings = {
   }
 }
 
-// 线程池状态
 const poolRunning = ref(false)
 
-// 当前设置
 const settings = reactive({ ...defaultSettings })
 
-// 加载设置
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  action: null
+})
+
+const showResetConfirm = () => {
+  confirmDialog.value = {
+    show: true,
+    title: t('settings.resetConfirmTitle'),
+    message: t('settings.resetConfirm'),
+    action: 'reset'
+  }
+}
+
+const cancelConfirm = () => {
+  confirmDialog.value.show = false
+}
+
+const confirmAction = async () => {
+  const action = confirmDialog.value.action
+  confirmDialog.value.show = false
+  
+  if (action === 'reset') {
+    await doResetSettings()
+  }
+}
+
 const loadSettings = async () => {
   try {
-    // 获取应用信息
     const info = await api.GetAppInfo()
     if (info) {
       appInfo.value = info
     }
 
-    // 获取用户配置
     const config = await api.GetUserConfig()
     if (config) {
-      // 合并配置
       Object.assign(settings, {
         theme: config.theme || defaultSettings.theme,
         language: config.language || defaultSettings.language,
@@ -261,30 +309,25 @@ const loadSettings = async () => {
         pool: { ...defaultSettings.pool, ...config.settings?.pool }
       })
 
-      // 同步到i18n
       locale.value = settings.language
       
-      // 通知父组件
       emit('theme-change', settings.theme)
       emit('language-change', settings.language)
 
-      // 检查线程池状态
       await checkPoolStatus()
 
-      // 如果设置了自动启动线程池，则启动
       if (settings.pool.autoStart) {
         await startPool()
       }
     }
   } catch (e) {
     console.error('加载设置失败:', e)
+    showToast(t('settings.loadFailed'), 'error')
   }
 }
 
-// 检查线程池状态
 const checkPoolStatus = async () => {
   try {
-    // 通过性能监控接口获取线程池状态
     const stats = await api.GetPerformanceStats()
     if (stats) {
       poolRunning.value = stats.pool_running || false
@@ -294,63 +337,50 @@ const checkPoolStatus = async () => {
   }
 }
 
-// 启动线程池
 const startPool = async () => {
   try {
     await api.InitThreadPool(settings.pool.size)
     poolRunning.value = true
-    savedMsg.value = t('settings.poolStarted')
-    saveSuccess.value = true
-    setTimeout(() => { savedMsg.value = '' }, 2000)
+    showToast(t('settings.poolStarted'), 'success')
   } catch (e) {
-    savedMsg.value = t('settings.poolStartFailed')
-    saveSuccess.value = false
+    showToast(t('settings.poolStartFailed'), 'error')
     console.error('启动线程池失败:', e)
   }
 }
 
-// 停止线程池
 const stopPool = async () => {
   try {
     await api.StopThreadPool()
     poolRunning.value = false
-    savedMsg.value = t('settings.poolStopped')
-    saveSuccess.value = true
-    setTimeout(() => { savedMsg.value = '' }, 2000)
+    showToast(t('settings.poolStopped'), 'success')
   } catch (e) {
-    savedMsg.value = t('settings.poolStopFailed')
-    saveSuccess.value = false
+    showToast(t('settings.poolStopFailed'), 'error')
     console.error('停止线程池失败:', e)
   }
 }
 
-// 语言改变
 const onLanguageChange = () => {
   locale.value = settings.language
   emit('language-change', settings.language)
   saveSettings()
 }
 
-// 协议偏好改变
 const onProtocolPreferenceChange = async () => {
   try {
     await api.SetProtocolPreference(settings.transfer.defaultProtocol)
-    savedMsg.value = t('settings.protocolPreferenceSaved')
-    saveSuccess.value = true
-    setTimeout(() => { savedMsg.value = '' }, 2000)
+    showToast(t('settings.protocolPreferenceSaved'), 'success')
   } catch (e) {
     console.error('设置协议偏好失败:', e)
+    showToast(t('settings.protocolPreferenceFailed'), 'error')
   }
   saveSettings()
 }
 
-// 设置改变
 const onSettingChange = () => {
   emit('settings-change', settings)
   saveSettings()
 }
 
-// 保存设置
 const saveSettings = async () => {
   try {
     await api.SaveUserConfig({
@@ -366,7 +396,6 @@ const saveSettings = async () => {
       }
     })
     
-    // 应用主题
     document.documentElement.setAttribute('data-theme', settings.theme)
     
     savedMsg.value = t('settings.saved')
@@ -379,9 +408,7 @@ const saveSettings = async () => {
   }
 }
 
-// 重置设置
-const resetSettings = async () => {
-  if (!confirm(t('settings.resetConfirm'))) return
+const doResetSettings = async () => {
   try {
     await api.ResetUserConfig()
     Object.assign(settings, defaultSettings)
@@ -389,56 +416,52 @@ const resetSettings = async () => {
     document.documentElement.setAttribute('data-theme', settings.theme)
     emit('theme-change', settings.theme)
     emit('language-change', settings.language)
-    savedMsg.value = t('settings.resetSuccess')
-    saveSuccess.value = true
-    setTimeout(() => { savedMsg.value = '' }, 2000)
+    showToast(t('settings.resetSuccess'), 'success')
   } catch (e) {
     console.error('重置设置失败:', e)
+    showToast(t('settings.resetFailed'), 'error')
   }
 }
 
-// 导出设置
-const exportSettings = () => {
-  const dataStr = JSON.stringify(settings, null, 2)
-  const blob = new Blob([dataStr], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `lanftt-settings-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// 导入设置
-const importSettings = () => {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json'
-  input.onchange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    try {
-      const text = await file.text()
-      const imported = JSON.parse(text)
-      Object.assign(settings, imported)
-      await saveSettings()
-      savedMsg.value = t('settings.importSuccess')
-      saveSuccess.value = true
-    } catch (e) {
-      savedMsg.value = t('settings.importFailed')
-      saveSuccess.value = false
+const exportSettings = async () => {
+  try {
+    const defaultFilename = `lanftt-settings-${new Date().toISOString().split('T')[0]}.json`
+    const filePath = await api.SelectSaveFile(defaultFilename)
+    if (!filePath) {
+      return
     }
+    const dataStr = JSON.stringify(settings, null, 2)
+    await api.SaveTextFile(filePath, dataStr)
+    showToast(t('settings.exportSuccess'), 'success')
+  } catch (e) {
+    console.error('导出设置失败:', e)
+    showToast(t('settings.exportFailed'), 'error')
   }
-  input.click()
 }
 
-// 监听设置变化，同步到全局
+const importSettings = async () => {
+  try {
+    const files = await api.SelectFiles(false)
+    if (!files || files.length === 0) {
+      return
+    }
+    const filePath = files[0].path
+    const text = await api.ReadTextFile(filePath)
+    const imported = JSON.parse(text)
+    Object.assign(settings, imported)
+    await saveSettings()
+    showToast(t('settings.importSuccess'), 'success')
+  } catch (e) {
+    console.error('导入设置失败:', e)
+    showToast(t('settings.importFailed'), 'error')
+  }
+}
+
 watch(() => settings.theme, (newTheme) => {
   document.documentElement.setAttribute('data-theme', newTheme)
   emit('theme-change', newTheme)
 })
 
-// 监听父组件传递的props变化，同步到本地设置
 watch(() => props.theme, (newTheme) => {
   if (newTheme && newTheme !== settings.theme) {
     settings.theme = newTheme
@@ -467,6 +490,13 @@ onMounted(loadSettings)
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background var(--transition-fast);
+}
+
+.setting-row:hover {
+  background: var(--bg);
 }
 
 .setting-row .label {
@@ -486,5 +516,82 @@ onMounted(loadSettings)
 
 .text-error {
   color: var(--danger);
+}
+
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.confirm-dialog-header h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.confirm-dialog-body p {
+  margin: 0 0 20px 0;
+  color: var(--text-secondary);
+}
+
+.confirm-dialog-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 9999;
+  animation: toast-in 3s ease;
+}
+
+.toast.success {
+  background: var(--success);
+  color: #fff;
+}
+
+.toast.error {
+  background: var(--danger);
+  color: #fff;
+}
+
+.toast.warning {
+  background: var(--warning);
+  color: #000;
+}
+
+.toast.info {
+  background: var(--primary);
+  color: #fff;
+}
+
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>

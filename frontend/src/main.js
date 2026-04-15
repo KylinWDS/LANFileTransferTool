@@ -18,16 +18,109 @@ const i18n = createI18n({
   }
 })
 
-// 等待Wails运行时准备就绪
+const originalConsole = {
+  log: console.log,
+  info: console.info,
+  warn: console.warn,
+  error: console.error,
+  debug: console.debug
+}
+
+function getLogApi() {
+  if (window.go && window.go.app && window.go.app.App) {
+    return window.go.app.App
+  }
+  return null
+}
+
+function formatLogArgs(args) {
+  return args.map(arg => {
+    if (typeof arg === 'object') {
+      try {
+        return JSON.stringify(arg)
+      } catch (e) {
+        return String(arg)
+      }
+    }
+    return String(arg)
+  }).join(' ')
+}
+
+console.log = function(...args) {
+  originalConsole.log.apply(console, args)
+  try {
+    const api = getLogApi()
+    if (api && api.LogInfo) {
+      api.LogInfo(formatLogArgs(args))
+    }
+  } catch (e) {}
+}
+
+console.info = function(...args) {
+  originalConsole.info.apply(console, args)
+  try {
+    const api = getLogApi()
+    if (api && api.LogInfo) {
+      api.LogInfo(formatLogArgs(args))
+    }
+  } catch (e) {}
+}
+
+console.warn = function(...args) {
+  originalConsole.warn.apply(console, args)
+  try {
+    const api = getLogApi()
+    if (api && api.LogWarn) {
+      api.LogWarn(formatLogArgs(args))
+    }
+  } catch (e) {}
+}
+
+console.error = function(...args) {
+  originalConsole.error.apply(console, args)
+  try {
+    const api = getLogApi()
+    if (api && api.LogError) {
+      api.LogError(formatLogArgs(args))
+    }
+  } catch (e) {}
+}
+
+console.debug = function(...args) {
+  originalConsole.debug.apply(console, args)
+  try {
+    const api = getLogApi()
+    if (api && api.LogDebug) {
+      api.LogDebug(formatLogArgs(args))
+    }
+  } catch (e) {}
+}
+
+window.addEventListener('error', function(event) {
+  try {
+    const api = getLogApi()
+    if (api && api.LogError) {
+      api.LogError(`JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`)
+    }
+  } catch (e) {}
+})
+
+window.addEventListener('unhandledrejection', function(event) {
+  try {
+    const api = getLogApi()
+    if (api && api.LogError) {
+      api.LogError(`Unhandled Promise Rejection: ${event.reason}`)
+    }
+  } catch (e) {}
+})
+
 function waitForWails() {
   return new Promise((resolve) => {
-    // 检查Wails是否已就绪
     if (window.go && window.go.app && window.go.app.App) {
       resolve()
       return
     }
     
-    // 等待Wails就绪事件
     const checkInterval = setInterval(() => {
       if (window.go && window.go.app && window.go.app.App) {
         clearInterval(checkInterval)
@@ -35,7 +128,6 @@ function waitForWails() {
       }
     }, 100)
     
-    // 超时处理（5秒）
     setTimeout(() => {
       clearInterval(checkInterval)
       console.warn('Wails runtime timeout, proceeding anyway...')
@@ -44,14 +136,13 @@ function waitForWails() {
   })
 }
 
-// 等待Wails就绪后再挂载Vue应用
 waitForWails().then(() => {
+  console.log('应用程序启动')
   const app = createApp(App)
   app.use(i18n)
   app.mount('#app')
 }).catch(err => {
   console.error('Failed to initialize app:', err)
-  // 即使出错也尝试挂载应用
   const app = createApp(App)
   app.use(i18n)
   app.mount('#app')

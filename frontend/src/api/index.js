@@ -34,7 +34,16 @@ import {
   GetProtocolRecommendation,
   SetProtocolPreference,
   SelectProtocol,
-  GetSecurityInfo
+  GetSecurityInfo,
+  GetLogs,
+  ClearLogs,
+  LogInfo,
+  LogWarn,
+  LogError,
+  LogDebug,
+  SaveTextFile,
+  SelectSaveFile,
+  ReadTextFile
 } from '../../wailsjs/go/app/App'
 
 export default {
@@ -73,5 +82,14 @@ export default {
   GetProtocolRecommendation,
   SetProtocolPreference,
   SelectProtocol,
-  GetSecurityInfo
+  GetSecurityInfo,
+  GetLogs,
+  ClearLogs,
+  LogInfo,
+  LogWarn,
+  LogError,
+  LogDebug,
+  SaveTextFile,
+  SelectSaveFile,
+  ReadTextFile
 }

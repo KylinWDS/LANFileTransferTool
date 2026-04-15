@@ -44,7 +44,8 @@
     "encryption": "加密解密",
     "performance": "性能监控",
     "environment": "环境检测",
-    "settings": "设置"
+    "settings": "设置",
+    "logs": "日志"
   },
   "transfer": {
     "title": "文件传输",
@@ -124,7 +125,10 @@
     "fileList": "文件列表 ({count}个)",
     "currentFile": "当前文件",
     "files": "个文件",
-    "filesPerSec": "个文件/秒"
+    "filesPerSec": "个文件/秒",
+    "received": "已接收",
+    "timeElapsed": "已用时间",
+    "timeRemaining": "剩余时间"
   },
   "history": {
     "title": "历史记录",
@@ -183,7 +187,14 @@
     "keyLength": "密钥长度",
     "algorithm": "算法",
     "copyKey": "复制密钥",
-    "keyGenerated": "密钥已生成"
+    "keyGenerated": "密钥已生成",
+    "keyGenerateFailed": "生成密钥失败",
+    "encryptSuccess": "加密成功",
+    "decryptSuccess": "解密成功",
+    "emptyInput": "请输入内容和密钥",
+    "keyPlaceholder": "输入或生成密钥",
+    "plainTextPlaceholder": "输入要加密的文本",
+    "cipherTextPlaceholder": "输入要解密的密文"
   },
   "performance": {
     "title": "性能监控",
@@ -284,7 +295,13 @@
     "protocolPreference": "协议偏好",
     "autoSelect": "自动选择",
     "autoSelectHint": "系统将根据文件大小和网络环境自动选择最佳协议",
-    "protocolPreferenceSaved": "协议偏好已保存"
+    "protocolPreferenceSaved": "协议偏好已保存",
+    "protocolPreferenceFailed": "设置协议偏好失败",
+    "loadFailed": "加载设置失败",
+    "resetFailed": "重置设置失败",
+    "exportSuccess": "设置已导出",
+    "exportFailed": "导出设置失败",
+    "resetConfirmTitle": "重置设置"
   },
   "protocols": {
     "title": "传输协议",
@@ -297,5 +314,30 @@
     "websocketDesc": "WebSocket协议，实时性好",
     "udpDesc": "UDP协议，速度快",
     "p2pDesc": "P2P直连，无需服务器中转"
+  },
+  "logs": {
+    "title": "系统日志",
+    "refresh": "刷新",
+    "clear": "清除",
+    "export": "导出",
+    "autoRefresh": "自动刷新",
+    "filterLevel": "筛选级别",
+    "allLevels": "全部级别",
+    "total": "总计",
+    "noLogs": "暂无日志",
+    "refreshFailed": "刷新日志失败",
+    "clearFailed": "清除日志失败",
+    "clearConfirmTitle": "清除日志",
+    "clearConfirm": "确定要清除所有日志吗？",
+    "cleared": "日志已清除",
+    "exported": "日志已导出",
+    "exportFailed": "导出日志失败"
+  },
+  "accessibility": {
+    "switchToDark": "切换到深色模式",
+    "switchToLight": "切换到浅色模式",
+    "removeFile": "删除文件 {name}",
+    "remove": "删除",
+    "closeLinkCard": "关闭链接卡片"
   }
 }

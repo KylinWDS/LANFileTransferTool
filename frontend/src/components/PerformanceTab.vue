@@ -10,7 +10,14 @@
           </label>
         </div>
       </div>
-      <div v-if="loading" class="text-center text-secondary">{{ t('common.loading') }}</div>
+      <div v-if="loading" class="skeleton-container">
+        <div v-for="i in 3" :key="i" class="skeleton-section skeleton">
+          <div class="skeleton skeleton-title-sm"></div>
+          <div class="skeleton-stats">
+            <div v-for="j in 2" :key="j" class="skeleton-stat skeleton"></div>
+          </div>
+        </div>
+      </div>
       <div v-else>
         <!-- 线程池状态 -->
         <h3 class="section-title">{{ t('performance.poolStats') }}</h3>
@@ -126,9 +133,39 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 <style scoped>
 .section-title { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-.stat-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; }
+.stat-item { padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; transition: all var(--transition-fast); }
+.stat-item:hover { border-color: var(--primary); box-shadow: var(--shadow); }
 .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
 .stat-val { font-size: 24px; font-weight: 700; color: var(--primary); }
 .text-success { color: var(--success); }
 .text-secondary { color: var(--text-secondary); }
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-section {
+  padding: 16px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.skeleton-title-sm {
+  width: 120px;
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.skeleton-stat {
+  height: 80px;
+  border-radius: 6px;
+}
 </style>

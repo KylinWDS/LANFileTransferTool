@@ -6,9 +6,19 @@
         <button class="btn btn-primary" :disabled="checking" @click="runCheck">{{ checking ? t('common.loading') : t('environment.startCheck') }}</button>
       </div>
 
-      <div v-if="checking" class="text-center text-secondary">{{ t('common.loading') }}</div>
+      <div v-if="checking" class="skeleton-container">
+        <div v-for="i in 3" :key="i" class="skeleton-check skeleton">
+          <div class="skeleton skeleton-title-sm"></div>
+          <div class="skeleton skeleton-text"></div>
+        </div>
+      </div>
       <div v-else-if="results" class="check-list">
-        <div v-for="item in checkItems" :key="item.key" class="check-row">
+        <div 
+          v-for="item in checkItems" 
+          :key="item.key" 
+          v-memo="[item.key, item.status]"
+          class="check-row slide-up"
+        >
           <div class="flex-between">
             <span class="check-label">{{ item.icon }} {{ item.label }}</span>
             <span :class="['status-badge', item.cls]">{{ item.status }}</span>
@@ -23,7 +33,10 @@
           </ul>
         </div>
       </div>
-      <div v-else class="text-center text-secondary">{{ t('environment.startCheck') }}</div>
+      <div v-else class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-text">{{ t('environment.startCheck') }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -73,8 +86,32 @@ const runCheck = async () => {
 
 <style scoped>
 .check-list { display: flex; flex-direction: column; gap: 12px; }
-.check-row { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+.check-row { padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; transition: all var(--transition-fast); }
+.check-row:hover { border-color: var(--primary); box-shadow: var(--shadow); }
 .check-label { font-weight: 500; }
 .solution-list { list-style: none; padding: 0; margin-top: 8px; }
 .solution-list li { padding: 6px 10px; margin-bottom: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-check {
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.skeleton-title-sm {
+  width: 150px;
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.skeleton-check .skeleton-text {
+  width: 80%;
+  height: 12px;
+}
 </style>
